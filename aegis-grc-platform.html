@@ -157,9 +157,10 @@ body.auditor-mode .auditor-banner{display:flex;}
 /* ── MAIN ── */
 .main{
   margin-left:var(--sidebar-w);
-  min-height:100vh;
+  height:100vh;
   transition:margin-left .25s cubic-bezier(.4,0,.2,1);
   display:flex;flex-direction:column;
+  overflow:hidden;
 }
 .main.collapsed{margin-left:var(--sidebar-collapsed);}
 
@@ -180,7 +181,7 @@ body.auditor-mode .auditor-banner{display:flex;}
 .topbar-btn:hover{background:var(--bg5);color:var(--text);border-color:var(--border2);}
 .topbar-indicator{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green);}
 
-.content{padding:24px;flex:1;}
+.content{padding:24px;flex:1;overflow-y:auto;}
 .page{display:none;animation:fadeIn .2s ease;}
 .page.active{display:block;}
 @keyframes fadeIn{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
@@ -1196,7 +1197,7 @@ function nav(page){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   document.getElementById('page-'+page).classList.add('active');
-  document.body.scrollTop=0;document.documentElement.scrollTop=0;window.scrollTo(0,0);
+  const ct=document.querySelector('.content');if(ct)ct.scrollTop=0;
   const navEl=document.getElementById('nav-'+page);
   if(navEl)navEl.classList.add('active');
   document.getElementById('topbar-title').textContent=titles[page]||page;
