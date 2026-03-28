@@ -33,7 +33,7 @@
   --font:'Sora',sans-serif;
   --mono:'JetBrains Mono',monospace;
 }
-body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;}
+body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;}
 
 /* ── SIDEBAR ── */
 .sidebar{
@@ -1196,7 +1196,7 @@ function nav(page){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   document.getElementById('page-'+page).classList.add('active');
-  window.scrollTo(0,0);
+  document.body.scrollTop=0;document.documentElement.scrollTop=0;window.scrollTo(0,0);
   const navEl=document.getElementById('nav-'+page);
   if(navEl)navEl.classList.add('active');
   document.getElementById('topbar-title').textContent=titles[page]||page;
