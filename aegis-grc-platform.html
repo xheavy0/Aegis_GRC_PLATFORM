@@ -1197,12 +1197,13 @@ function nav(page){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   document.getElementById('page-'+page).classList.add('active');
-  const ct=document.querySelector('.content');if(ct)ct.scrollTop=0;
   const navEl=document.getElementById('nav-'+page);
   if(navEl)navEl.classList.add('active');
   document.getElementById('topbar-title').textContent=titles[page]||page;
   document.getElementById('topbar-bc').textContent='Aegis / '+(titles[page]||page);
   renderPage(page);
+  const ct=document.querySelector('.content');if(ct)ct.scrollTop=0;
+  document.body.scrollTop=0;document.documentElement.scrollTop=0;window.scrollTo(0,0);
 }
 function renderPage(p){
   ({home:renderHome,risks:renderRisks,controls:renderControls,assets:renderAssets,evidence:renderEvidence,findings:renderFindings,vendors:renderVendors,audits:renderAudits,policies:renderPolicies,plugins:renderPlugins,reports:renderReports,frameworks:renderFrameworks,settings:renderSettings}[p]||(() => {}))();
