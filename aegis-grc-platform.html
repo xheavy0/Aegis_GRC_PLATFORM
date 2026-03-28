@@ -8,6 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
+html{height:100%;overflow:hidden;}
 :root{
   --bg:#080c14;
   --bg2:#0d1220;
@@ -33,7 +34,7 @@
   --font:'Sora',sans-serif;
   --mono:'JetBrains Mono',monospace;
 }
-body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;display:flex;overflow-x:hidden;}
+body{font-family:var(--font);background:var(--bg);color:var(--text);height:100%;overflow:hidden;margin:0;padding:0;}
 
 /* ── SIDEBAR ── */
 .sidebar{
@@ -124,7 +125,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
 /* ── AUDITOR MODE ── */
 body.auditor-mode .topbar{background:#1a0a00;border-bottom-color:#92400e;}
 body.auditor-mode .sidebar{background:#0f0800;border-right-color:#92400e;}
-.auditor-banner{display:none;background:linear-gradient(90deg,#92400e,#b45309);padding:6px 24px;font-size:12px;font-weight:600;letter-spacing:.04em;color:#fef3c7;align-items:center;gap:10px;}
+.auditor-banner{display:none;background:linear-gradient(90deg,#92400e,#b45309);padding:6px 24px;font-size:12px;font-weight:600;letter-spacing:.04em;color:#fef3c7;align-items:center;gap:10px;flex-shrink:0;}
 body.auditor-mode .auditor-banner{display:flex;}
 .auditor-badge{background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:4px;font-size:11px;}
 
@@ -156,17 +157,19 @@ body.auditor-mode .auditor-banner{display:flex;}
 
 /* ── MAIN ── */
 .main{
-  margin-left:var(--sidebar-w);
-  flex:1;min-width:0;
-  transition:margin-left .25s cubic-bezier(.4,0,.2,1);
+  position:fixed;
+  top:0;left:var(--sidebar-w);right:0;bottom:0;
+  transition:left .25s cubic-bezier(.4,0,.2,1);
   display:flex;flex-direction:column;
+  overflow:hidden;
 }
-.main.collapsed{margin-left:var(--sidebar-collapsed);}
+.main.collapsed{left:var(--sidebar-collapsed);}
 
 .topbar{
-  height:56px;background:var(--bg2);border-bottom:1px solid var(--border);
+  height:56px;min-height:56px;flex-shrink:0;
+  background:var(--bg2);border-bottom:1px solid var(--border);
   display:flex;align-items:center;padding:0 24px;gap:16px;
-  position:sticky;top:0;z-index:40;
+  z-index:40;
 }
 .topbar-title{font-size:16px;font-weight:600;color:var(--text);}
 .topbar-sep{width:1px;height:20px;background:var(--border);}
@@ -180,7 +183,7 @@ body.auditor-mode .auditor-banner{display:flex;}
 .topbar-btn:hover{background:var(--bg5);color:var(--text);border-color:var(--border2);}
 .topbar-indicator{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green);}
 
-.content{padding:24px;flex:1;}
+.content{padding:24px;flex:1;overflow-y:auto;min-height:0;}
 .page{display:none;animation:fadeIn .2s ease;}
 .page.active{display:block;}
 @keyframes fadeIn{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
@@ -414,7 +417,7 @@ select option{background:var(--bg3);}
 .login-btn:disabled{opacity:.5;cursor:not-allowed;}
 .login-error{color:var(--red);font-size:13px;margin-top:12px;display:none;text-align:center;}
 .login-version{text-align:center;font-size:11px;color:var(--text3);margin-top:20px;}
-#app-wrapper{display:flex;width:100%;min-height:100vh;}
+#app-wrapper{position:fixed;inset:0;overflow:hidden;}
 </style>
 </head>
 <body>
@@ -1076,10 +1079,14 @@ const api={
 function showLogin(){
   document.getElementById('login-overlay').style.display='flex';
   document.getElementById('app-wrapper').style.display='none';
+  document.getElementById('app-wrapper').style.position='';
 }
 function hideLogin(){
   document.getElementById('login-overlay').style.display='none';
-  document.getElementById('app-wrapper').style.display='flex';
+  const aw=document.getElementById('app-wrapper');
+  aw.style.display='block';
+  aw.style.position='fixed';
+  aw.style.inset='0';
 }
 async function doLogin(){
   const email=document.getElementById('login-email').value.trim();
@@ -1201,6 +1208,7 @@ function nav(page){
   document.getElementById('topbar-title').textContent=titles[page]||page;
   document.getElementById('topbar-bc').textContent='Aegis / '+(titles[page]||page);
   renderPage(page);
+  requestAnimationFrame(()=>{const ct=document.querySelector('.content');if(ct)ct.scrollTop=0;window.scrollTo(0,0);});
 }
 function renderPage(p){
   ({home:renderHome,risks:renderRisks,controls:renderControls,assets:renderAssets,evidence:renderEvidence,findings:renderFindings,vendors:renderVendors,audits:renderAudits,policies:renderPolicies,plugins:renderPlugins,reports:renderReports,frameworks:renderFrameworks,settings:renderSettings}[p]||(() => {}))();
@@ -1818,33 +1826,22 @@ function exportReport(){
 // ═══════════════════════════════════════════
 // SETTINGS DATA
 // ═══════════════════════════════════════════
-D.users=DB.load('users',[
-  {id:'u1',name:'Archili K.',email:'archili@company.ge',role:'GRC Officer',dept:'IT Security',status:'Active',initials:'AK',color:'#3b82f6'},
-  {id:'u2',name:'Admin',email:'admin@company.ge',role:'Admin',dept:'IT',status:'Active',initials:'AD',color:'#8b5cf6'},
-  {id:'u3',name:'Nino Kvaratskhelia',email:'n.kv@company.ge',role:'Auditor',dept:'Internal Audit',status:'Active',initials:'NK',color:'#f59e0b'},
-  {id:'u4',name:'Giorgi Beridze',email:'g.ber@company.ge',role:'Viewer',dept:'Management',status:'Active',initials:'GB',color:'#10b981'}
-]);
-D.auditLog=DB.load('auditLog',[
-  {id:'l1',ts:'2026-03-26 09:14:32',user:'Archili K.',action:'Registered risk: Unauthorized AD Access',type:'risk',icon:'⚠️'},
-  {id:'l2',ts:'2026-03-26 09:22:10',user:'Archili K.',action:'Added evidence: MFA Enrollment — Okta Q1 2026',type:'evidence',icon:'📋'},
-  {id:'l3',ts:'2026-03-26 10:05:44',user:'Admin',action:'Connected plugin: Active Directory',type:'plugin',icon:'🔌'},
-  {id:'l4',ts:'2026-03-26 10:31:20',user:'Archili K.',action:'Registered finding: FND-001 — Password Policy Gap',type:'finding',icon:'🔍'},
-  {id:'l5',ts:'2026-03-26 11:00:00',user:'Nino Kvaratskhelia',action:'Viewed evidence items (read-only, auditor)',type:'view',icon:'👁️'}
-]);
-D.auditorPerms=DB.load('auditorPerms',{
+D.users=[];  // loaded from API
+D.auditLog=[];  // loaded from API
+D.auditorPerms={
   'View Evidence':true,'Download Evidence Files':false,
   'View Risks':true,'View Risk Details':false,
   'View Findings':true,'View Remediation Notes':false,
   'View Controls':true,'View NIST Coverage':true,
   'View Vendors':false,'View Audit Reports':true,
   'View Policies':true,'Export Reports':false
-});
-D.roles=DB.load('roles',{
+};
+D.roles={
   Admin:{color:'#3b82f6',desc:'Full system access. Can manage users, configure plugins, and delete any data.',perms:{all:true}},
   'GRC Officer':{color:'#8b5cf6',desc:'Can create, edit, and delete risks, controls, evidence, and findings. Cannot manage users.',perms:{risks:true,controls:true,evidence:true,findings:true,vendors:true,audits:true,policies:true,plugins:true,reports:true,frameworks:true,settings:false}},
   Auditor:{color:'#f59e0b',desc:'Read-only access to evidence, controls, risks and reports. Cannot create or modify data.',perms:{risks:'read',controls:'read',evidence:'read',findings:'read',reports:'read',frameworks:'read',vendors:false,audits:'read',policies:'read',plugins:false,settings:false}},
   Viewer:{color:'#10b981',desc:'Can only view dashboard, reports and approved policies. No sensitive data access.',perms:{dashboard:true,reports:'read',policies:'read'}}
-});
+};
 
 // ═══════════════════════════════════════════
 // SETTINGS RENDER
