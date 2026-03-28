@@ -33,7 +33,7 @@
   --font:'Sora',sans-serif;
   --mono:'JetBrains Mono',monospace;
 }
-body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;}
+body{font-family:var(--font);background:var(--bg);color:var(--text);height:100vh;overflow:hidden;margin:0;}
 
 /* ── SIDEBAR ── */
 .sidebar{
@@ -415,7 +415,7 @@ select option{background:var(--bg3);}
 .login-btn:disabled{opacity:.5;cursor:not-allowed;}
 .login-error{color:var(--red);font-size:13px;margin-top:12px;display:none;text-align:center;}
 .login-version{text-align:center;font-size:11px;color:var(--text3);margin-top:20px;}
-#app-wrapper{display:block;width:100%;min-height:100vh;}
+#app-wrapper{display:block;width:100%;height:100vh;overflow:hidden;}
 </style>
 </head>
 <body>
@@ -1202,8 +1202,7 @@ function nav(page){
   document.getElementById('topbar-title').textContent=titles[page]||page;
   document.getElementById('topbar-bc').textContent='Aegis / '+(titles[page]||page);
   renderPage(page);
-  const ct=document.querySelector('.content');if(ct)ct.scrollTop=0;
-  document.body.scrollTop=0;document.documentElement.scrollTop=0;window.scrollTo(0,0);
+  requestAnimationFrame(()=>{const ct=document.querySelector('.content');if(ct)ct.scrollTop=0;window.scrollTo(0,0);});
 }
 function renderPage(p){
   ({home:renderHome,risks:renderRisks,controls:renderControls,assets:renderAssets,evidence:renderEvidence,findings:renderFindings,vendors:renderVendors,audits:renderAudits,policies:renderPolicies,plugins:renderPlugins,reports:renderReports,frameworks:renderFrameworks,settings:renderSettings}[p]||(() => {}))();
