@@ -516,8 +516,8 @@ select option{background:var(--bg3);}
     <div class="nav-icon">📄</div><span class="nav-label">Policies</span>
   </div>
 
-  <div class="sidebar-section">System</div>
-    <div class="nav-item" onclick="nav('settings')" id="nav-settings" style="margin:0 8px 4px;">
+  <div class="sidebar-footer">
+    <div class="nav-item" onclick="nav('settings')" id="nav-settings" style="margin:0 0 4px;">
       <div class="nav-icon">⚙️</div><span class="nav-label">Settings</span>
     </div>
     <div class="sidebar-user" onclick="nav('settings')" style="cursor:pointer">
@@ -527,7 +527,7 @@ select option{background:var(--bg3);}
         <div class="user-role" id="sb-role">—</div>
       </div>
     </div>
-    <div style="padding:6px 12px 12px">
+    <div style="padding:6px 4px 0">
       <button onclick="doLogout()" style="width:100%;background:transparent;border:1px solid var(--border2);color:var(--text3);border-radius:6px;padding:6px;font-size:12px;cursor:pointer;font-family:var(--font);transition:all .15s" onmouseover="this.style.borderColor='var(--red)';this.style.color='var(--red)'" onmouseout="this.style.borderColor='var(--border2)';this.style.color='var(--text3)'">Sign Out</button>
     </div>
   </div>
