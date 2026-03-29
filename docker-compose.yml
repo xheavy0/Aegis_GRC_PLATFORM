@@ -46,7 +46,7 @@ services:
     volumes:
       - ./aegis-grc-platform.html:/usr/share/nginx/html/index.html:ro
       - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
-      - ~/aegis/aegis-logo.png:/usr/share/nginx/html/aegis-logo.png:ro
+      - ./aegis-logo.png:/usr/share/nginx/html/aegis-logo.png:ro
     depends_on:
       api:
         condition: service_healthy
