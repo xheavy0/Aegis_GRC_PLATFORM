@@ -1839,39 +1839,79 @@ function renderReports(){
     return`<tr><td style="font-weight:500">${f.n}</td><td><span class="badge b-blue mono">${f.c}</span></td><td>${ctrls.length}</td><td style="color:var(--green)">${impl}</td><td style="color:var(--red)">${gap}</td><td><div style="display:flex;align-items:center;gap:10px"><div class="pbar" style="width:120px"><div class="pfill" style="width:${pct}%;background:linear-gradient(90deg,var(--accent),var(--teal))"></div></div><span style="font-size:12px;color:var(--text3)">${pct}%</span></div></td></tr>`;
   }).join('');
 
-  // ── breakdown helpers
-  const sevColors=[['Critical','var(--red)'],['High','var(--amber)'],['Medium','var(--green)'],['Low','var(--blue)']];
-  function breakdownHtml(total,items,getField,label){
-    const dot=(c)=>`<span style="width:8px;height:8px;border-radius:50%;background:${c};display:inline-block;flex-shrink:0"></span>`;
-    const totalRow=`<div style="display:flex;align-items:baseline;gap:10px;margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid var(--border)"><span style="font-size:38px;font-weight:700;color:var(--text);line-height:1">${total}</span><span style="font-size:12px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em">${label}</span></div>`;
-    const bars=sevColors.map(([s,c])=>{
-      const cnt=items.filter(x=>getField(x)===s).length;
-      const pct=total?Math.round(cnt/total*100):0;
-      return`<div style="margin-bottom:11px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px"><span style="font-size:13px;display:flex;align-items:center;gap:7px">${dot(c)}${s}</span><span style="font-size:12px;color:var(--text3);font-weight:500">${cnt}&nbsp;<span style="color:var(--text3);font-weight:400">(${pct}%)</span></span></div><div class="pbar"><div class="pfill" style="width:${pct}%;background:${c}"></div></div></div>`;
-    }).join('');
-    return totalRow+bars;
+  // ── column chart helper (Excel-style vertical bars)
+  function colChart(series,maxVal,chartH,barW,gap,showPct){
+    // series: [{label,value,color,total?}]
+    const max=maxVal||Math.max(...series.map(s=>s.value),1);
+    // round max up to nice number
+    const niceMax=(v)=>{const e=Math.pow(10,Math.floor(Math.log10(v||1)));const f=Math.ceil(v/e);return f*e;};
+    const yMax=niceMax(max)||10;
+    const gridLines=5;
+    const chartWidth=series.length*(barW+gap)+gap;
+    // y-axis labels
+    let yLabels='';
+    for(let i=0;i<=gridLines;i++){
+      const val=Math.round(yMax*i/gridLines);
+      const y=chartH-(chartH*i/gridLines);
+      yLabels+=`<text x="38" y="${y+4}" text-anchor="end" font-size="10" fill="var(--text3)">${val}</text>`;
+    }
+    // grid lines
+    let grids='';
+    for(let i=0;i<=gridLines;i++){
+      const y=chartH-(chartH*i/gridLines);
+      grids+=`<line x1="42" y1="${y}" x2="${42+chartWidth}" y2="${y}" stroke="var(--border)" stroke-width="1"/>`;
+    }
+    // bars + labels
+    let bars='';
+    series.forEach((s,i)=>{
+      const x=42+gap+i*(barW+gap);
+      const h=Math.max(yMax?Math.round(s.value/yMax*chartH):0,s.value>0?2:0);
+      const y=chartH-h;
+      const valLabel=showPct?(s.total?Math.round(s.value/s.total*100)+'%':'-'):s.value;
+      bars+=`<rect x="${x}" y="${y}" width="${barW}" height="${h}" fill="${s.color}" rx="3"/>`;
+      if(s.value>0) bars+=`<text x="${x+barW/2}" y="${y-5}" text-anchor="middle" font-size="11" font-weight="600" fill="var(--text)">${valLabel}</text>`;
+      bars+=`<text x="${x+barW/2}" y="${chartH+16}" text-anchor="middle" font-size="11" fill="var(--text2)">${s.label}</text>`;
+    });
+    // x-axis line
+    const xLine=`<line x1="42" y1="${chartH}" x2="${42+chartWidth}" y2="${chartH}" stroke="var(--border)" stroke-width="1.5"/>`;
+    const totalW=42+chartWidth+10;
+    const totalH=chartH+30;
+    return`<svg viewBox="0 0 ${totalW} ${totalH}" style="width:100%;height:auto;overflow:visible">${yLabels}${grids}${xLine}${bars}</svg>`;
   }
 
-  // risk breakdown
-  document.getElementById('r-risk-breakdown').innerHTML=breakdownHtml(D.risks.length,D.risks,r=>r.severity,'Total Risks');
+  // ── severity column charts
+  const sevDef=[['Critical','#ef4444'],['High','#f59e0b'],['Medium','#10b981'],['Low','#3b82f6']];
 
-  // findings breakdown
-  document.getElementById('r-find-breakdown').innerHTML=breakdownHtml(D.findings.length,D.findings,f=>f.severity,'Total Findings');
+  function sevChart(items,getField){
+    const series=sevDef.map(([s,c])=>({label:s,value:items.filter(x=>getField(x)===s).length,color:c}));
+    const maxV=Math.max(...series.map(s=>s.value),1);
+    return colChart(series,maxV,160,44,14,false);
+  }
 
-  // site coverage (NIST CSF per function)
+  const rTotal=D.risks.length;
+  const fTotal=D.findings.length;
+
+  document.getElementById('r-risk-breakdown').innerHTML=
+    `<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:14px"><span style="font-size:34px;font-weight:700;color:var(--text);line-height:1">${rTotal}</span><span style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em">Total Risks</span></div>`
+    +sevChart(D.risks,r=>r.severity);
+
+  document.getElementById('r-find-breakdown').innerHTML=
+    `<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:14px"><span style="font-size:34px;font-weight:700;color:var(--text);line-height:1">${fTotal}</span><span style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em">Total Findings</span></div>`
+    +sevChart(D.findings,f=>f.severity);
+
+  // ── site coverage column chart (NIST CSF per function)
   const fnsDet=[{c:'GV',n:'Govern',col:'#3b82f6'},{c:'ID',n:'Identify',col:'#10b981'},{c:'PR',n:'Protect',col:'#06b6d4'},{c:'DE',n:'Detect',col:'#f59e0b'},{c:'RS',n:'Respond',col:'#ef4444'},{c:'RC',n:'Recover',col:'#8b5cf6'}];
   const totalCtrl=Math.max(D.controls.length,1);
   const totalImpl2=D.controls.filter(c=>c.status==='Implemented').length;
   const overallPct=Math.round(totalImpl2/totalCtrl*100);
-  const dot2=(c)=>`<span style="width:8px;height:8px;border-radius:50%;background:${c};display:inline-block;flex-shrink:0"></span>`;
-  const covTotalRow=`<div style="display:flex;align-items:baseline;gap:10px;margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid var(--border)"><span style="font-size:38px;font-weight:700;color:var(--text);line-height:1">${overallPct}%</span><span style="font-size:12px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em">Overall Coverage</span></div>`;
-  const covBars=fnsDet.map(f=>{
+  const covSeries=fnsDet.map(f=>{
     const ctrls=D.controls.filter(c=>c.func&&c.func.startsWith(f.c));
     const impl=ctrls.filter(c=>c.status==='Implemented').length;
-    const pct=ctrls.length?Math.round(impl/ctrls.length*100):0;
-    return`<div style="margin-bottom:11px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px"><span style="font-size:13px;display:flex;align-items:center;gap:7px">${dot2(f.col)}${f.n}</span><span style="font-size:12px;color:var(--text3);font-weight:500">${pct}%</span></div><div class="pbar"><div class="pfill" style="width:${pct}%;background:${f.col}"></div></div></div>`;
-  }).join('');
-  document.getElementById('r-coverage-breakdown').innerHTML=covTotalRow+covBars;
+    return{label:f.c,value:impl,total:Math.max(ctrls.length,1),color:f.col};
+  });
+  document.getElementById('r-coverage-breakdown').innerHTML=
+    `<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:14px"><span style="font-size:34px;font-weight:700;color:var(--text);line-height:1">${overallPct}%</span><span style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em">Overall Coverage</span></div>`
+    +colChart(covSeries,Math.max(...covSeries.map(s=>s.total),1),160,38,14,true);
 
   // plugins with errors
   const PLUGIN_ICONS={'Active Directory':'🏢','Okta':'🔐','Tenable.IO':'🔎','Azure AD':'☁️','Microsoft Intune':'📱','KnowBe4':'🎓','SailPoint':'⚓','Wiz':'🌩️','Cloudflare':'🌐','Jamf Pro':'🍎','Atlassian':'📋','Office 365':'📧'};
