@@ -2986,7 +2986,7 @@ function toggleTheme(){
 function settingsTab(el,id){
   document.querySelectorAll('#page-settings .tab').forEach(t=>t.classList.remove('active'));
   el.classList.add('active');
-  ['st-users','st-roles','st-log','st-auditor'].forEach(t=>{
+  ['st-users','st-roles','st-log','st-auditor','st-appearance'].forEach(t=>{
     const e=document.getElementById(t);if(e)e.style.display=t===id?'block':'none';
   });
   if(id==='st-log')renderAuditLog();
