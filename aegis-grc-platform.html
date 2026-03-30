@@ -839,7 +839,7 @@ select option{background:var(--bg3);}
     <div class="card" style="margin-top:18px;">
       <div class="card-title" style="display:flex;align-items:center;justify-content:space-between;">
         <span>Risk Matrix</span>
-        <button id="btn-matrix-config" class="btn btn-ghost" style="font-size:11px;padding:4px 10px;display:none;" onclick="openMatrixConfig()">&#9881; Configure</button>
+        <button id="btn-matrix-config" class="btn btn-ghost" style="font-size:11px;padding:4px 10px;" onclick="openMatrixConfig()">&#9881; Configure</button>
       </div>
       <div class="risk-matrix-wrap">
         <div class="risk-axis" id="risk-axis-labels">
@@ -1941,9 +1941,6 @@ function renderHeatmap(){
   document.getElementById('hm-high').textContent=D.risks.filter(r=>r.severity==='High').length;
   document.getElementById('hm-med').textContent=D.risks.filter(r=>r.severity==='Medium').length;
   document.getElementById('hm-low').textContent=D.risks.filter(r=>r.severity==='Low').length;
-  // show Configure button only for admin
-  const cfgBtn=document.getElementById('btn-matrix-config');
-  if(cfgBtn)cfgBtn.style.display=isAdmin()?'':'none';
 }
 
 function renderNISTbars(){
