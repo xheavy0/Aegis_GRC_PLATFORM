@@ -208,6 +208,13 @@ body.auditor-mode .auditor-banner{display:flex;}
 .page-header{margin-bottom:24px;}
 .page-title{font-size:24px;font-weight:700;color:var(--text);letter-spacing:-.4px;}
 .page-sub{font-size:13px;color:var(--text3);margin-top:4px;}
+.editor-grid{display:grid;grid-template-columns:minmax(0,2fr) minmax(280px,1fr);gap:18px;align-items:start;}
+.editor-sidebar{display:flex;flex-direction:column;gap:16px;}
+.upload-drop{border:1px dashed var(--border2);border-radius:12px;padding:16px;background:var(--bg3);}
+.upload-drop input[type="file"]{margin-top:10px;}
+.doc-list{display:flex;flex-direction:column;gap:10px;}
+.doc-item{padding:12px 14px;border:1px solid var(--border);border-radius:10px;background:var(--bg3);}
+.doc-meta{font-size:11px;color:var(--text3);margin-top:4px;}
 
 /* ── CARDS ── */
 .card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:20px;}
@@ -1019,6 +1026,14 @@ select option{background:var(--bg3);}
   </div>
 
   <!-- ══════════ PLUGINS ══════════ -->
+  <div class="page" id="page-record-editor">
+    <div class="page-header">
+      <div class="page-title" id="record-editor-title">Edit Record</div>
+      <div class="page-sub" id="record-editor-sub">Update the selected record and manage supporting documents</div>
+    </div>
+    <div id="record-editor-body"></div>
+  </div>
+
   <div class="page" id="page-plugins">
     <div class="page-header">
       <div class="page-title">Integrations</div>
@@ -1446,6 +1461,13 @@ const api={
     if(!r.ok){const t=await r.text();throw new Error(t);}
     return r.json();
   },
+  async postForm(path,formData){
+    const headers=api.token()?{'Authorization':'Bearer '+api.token()}:{};
+    const r=await fetch(API_BASE+path,{method:'POST',headers,body:formData});
+    if(r.status===401){showLogin();throw new Error('Unauthorized');}
+    if(!r.ok){const t=await r.text();throw new Error(t);}
+    return r.json();
+  },
   async patch(path,body){
     const r=await fetch(API_BASE+path,{method:'PATCH',headers:api.headers(),body:JSON.stringify(body)});
     if(r.status===401){showLogin();throw new Error('Unauthorized');}
@@ -1561,6 +1583,17 @@ function toApiEnum(value){
 function normalizeFrameworkName(name){
   return FRAMEWORK_NAME_MAP[name]||name;
 }
+const LOCAL_META_KEY='aegis_local_meta_v1';
+let LOCAL_META={};
+try{LOCAL_META=JSON.parse(localStorage.getItem(LOCAL_META_KEY)||'{}')||{};}catch(e){LOCAL_META={};}
+function persistLocalMeta(){localStorage.setItem(LOCAL_META_KEY,JSON.stringify(LOCAL_META));}
+function getEntityMeta(type,id){return (LOCAL_META[type]&&LOCAL_META[type][id])||{};}
+function setEntityMeta(type,id,patch){
+  if(!LOCAL_META[type])LOCAL_META[type]={};
+  LOCAL_META[type][id]={...(LOCAL_META[type][id]||{}),...patch};
+  persistLocalMeta();
+  return LOCAL_META[type][id];
+}
 function syncCurrentUser(){
   if(!currentUser)return;
   D.users=[{
@@ -1586,14 +1619,14 @@ const adaptApiUser=u=>({
   initials:(u.full_name||u.email).split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase(),
   color:ROLE_COLORS[u.role]||'#64748b',
 });
-const adaptRisk=r=>({id:r.id,name:r.title,title:r.title,desc:r.description||'',category:r.category||'',severity:toDisplayEnum(r.level),status:toDisplayEnum(r.status),likelihood:String(r.likelihood),impact:String(r.impact),owner:r.owner||'',nist:'',created:r.created_at?.slice(0,10)||today()});
+const adaptRisk=r=>{const meta=getEntityMeta('risk',r.id);return{id:r.id,name:r.title,title:r.title,desc:r.description||'',category:r.category||'',severity:toDisplayEnum(r.level),status:toDisplayEnum(r.status),likelihood:String(r.likelihood),impact:String(r.impact),owner:r.owner||'',nist:meta.nist||'',due:r.due_date?.slice(0,10)||'',created:r.created_at?.slice(0,10)||today()};};
 const adaptControl=c=>({id:c.id,controlId:c.framework_ref||String(c.id).slice(0,8),name:c.title,func:toDisplayEnum(c.control_type),sub:c.framework||'',status:toDisplayEnum(c.status),solution:c.effectiveness||'',desc:c.description||'',created:c.created_at?.slice(0,10)||today()});
-const adaptAsset=a=>({id:a.id,name:a.name,type:toDisplayEnum(a.asset_type),ip:a.ip_address||'',os:a.location||'',criticality:toDisplayEnum(a.criticality),owner:a.owner||'',status:'Active',created:a.created_at?.slice(0,10)||today()});
+const adaptAsset=a=>{const meta=getEntityMeta('asset',a.id);return{id:a.id,name:a.name,type:toDisplayEnum(a.asset_type),ip:a.ip_address||'',os:a.location||'',criticality:toDisplayEnum(a.criticality),owner:a.owner||'',status:meta.status||'Active',desc:a.description||'',tags:a.tags||'',created:a.created_at?.slice(0,10)||today()};};
 const adaptFinding=f=>({id:f.id,name:f.title,title:f.title,findingId:String(f.id).slice(0,8).toUpperCase(),desc:f.description||'',severity:toDisplayEnum(f.severity),status:toDisplayEnum(f.status),source:f.source||'',assignee:f.assignee||'',remediation:f.remediation||'',due:f.due_date?.slice(0,10)||'',created:f.created_at?.slice(0,10)||today()});
-const adaptVendor=v=>({id:v.id,name:v.name,category:v.category||'',risk:toDisplayEnum(v.risk_level),status:toDisplayEnum(v.status),contact:v.contact_name||'',email:v.contact_email||'',data:v.website||'—',exp:v.contract_expiry?.slice(0,10)||'',score:v.score||'',created:v.created_at?.slice(0,10)||today()});
-const adaptAudit=a=>({id:a.id,name:a.title,framework:'General',type:toDisplayEnum(a.audit_type),status:toDisplayEnum(a.status),auditor:a.auditor||'',scope:a.scope||'',start:a.start_date?.slice(0,10)||'',end:a.end_date?.slice(0,10)||'',findings:a.findings_count||0,created:a.created_at?.slice(0,10)||today()});
-const adaptPolicy=p=>({id:p.id,name:p.title,desc:p.description||'',category:p.category||'',status:toDisplayEnum(p.status),owner:p.owner||'',version:p.version,review:p.review_date?.slice(0,10)||'',created:p.created_at?.slice(0,10)||today()});
-const adaptEvidence=e=>({id:e.id,name:e.title,source:e.source||'',control:e.control_id?String(e.control_id).slice(0,8).toUpperCase():'',status:toDisplayEnum(e.status),notes:e.description||'',created:e.created_at?.slice(0,10)||today()});
+const adaptVendor=v=>{const meta=getEntityMeta('vendor',v.id);return{id:v.id,name:v.name,category:v.category||'',risk:toDisplayEnum(v.risk_level),status:toDisplayEnum(v.status),contact:v.contact_name||'',email:v.contact_email||'',data:meta.dataAccess||v.website||'—',website:v.website||'',desc:v.description||'',exp:v.contract_expiry?.slice(0,10)||'',score:v.score||'',created:v.created_at?.slice(0,10)||today()};};
+const adaptAudit=a=>{const meta=getEntityMeta('audit',a.id);return{id:a.id,name:a.title,framework:meta.framework||'General',type:toDisplayEnum(a.audit_type),status:toDisplayEnum(a.status),auditor:a.auditor||'',desc:a.description||'',scope:a.scope||'',start:a.start_date?.slice(0,10)||'',end:a.end_date?.slice(0,10)||'',findings:a.findings_count||0,created:a.created_at?.slice(0,10)||today()};};
+const adaptPolicy=p=>({id:p.id,name:p.title,desc:p.description||'',content:p.content||'',category:p.category||'',status:toDisplayEnum(p.status),owner:p.owner||'',version:p.version,review:p.review_date?.slice(0,10)||'',approvedBy:p.approved_by||'',created:p.created_at?.slice(0,10)||today()});
+const adaptEvidence=e=>{const meta=getEntityMeta('evidence',e.id);return{id:e.id,name:e.title,source:toDisplayEnum(e.source||''),control:e.control_id?String(e.control_id).slice(0,8).toUpperCase():'',status:toDisplayEnum(e.status),notes:e.description||'',riskId:meta.riskId||'',fileName:e.file_name||'',filePath:e.file_path||'',created:e.created_at?.slice(0,10)||today()};};
 
 // ─── LOAD ALL DATA FROM API ───
 async function loadAllData(){
@@ -1683,7 +1716,7 @@ function toggleSidebar(){
 // ═══════════════════════════════════════════
 // NAVIGATION
 // ═══════════════════════════════════════════
-const titles={'home':'Home','risks':'Risk Register','risk-workspace':'Risk Register','gap-workspace':'Gap Register','controls':'Controls Library','assets':'Asset Inventory','evidence':'Evidence Management','findings':'Findings Register','vendors':'Vendor Risk','audits':'Audit Management','policies':'Policy Management','plugins':'Integrations','reports':'Reports & Analytics','report-risks':'Risk Severity Distribution','report-findings':'Findings Reporting','report-frameworks':'Framework Coverage Reporting','report-integrations':'Integrations Reporting','frameworks':'Frameworks & Controls','framework-nist':'NIST CSF 2.0','framework-iso':'ISO 27001','framework-soc2':'SOC 2','framework-gdpr':'GDPR','framework-pci':'PCI DSS','framework-cis':'CIS Controls','settings':'Settings'};
+const titles={'home':'Home','risks':'Risk Register','risk-workspace':'Risk Register','gap-workspace':'Gap Register','controls':'Controls Library','assets':'Asset Inventory','evidence':'Evidence Management','findings':'Findings Register','vendors':'Vendor Risk','audits':'Audit Management','policies':'Policy Management','record-editor':'Record Editor','plugins':'Integrations','reports':'Reports & Analytics','report-risks':'Risk Severity Distribution','report-findings':'Findings Reporting','report-frameworks':'Framework Coverage Reporting','report-integrations':'Integrations Reporting','frameworks':'Frameworks & Controls','framework-nist':'NIST CSF 2.0','framework-iso':'ISO 27001','framework-soc2':'SOC 2','framework-gdpr':'GDPR','framework-pci':'PCI DSS','framework-cis':'CIS Controls','settings':'Settings'};
 function nav(page){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
@@ -1696,7 +1729,7 @@ function nav(page){
   requestAnimationFrame(()=>{const ct=document.querySelector('.content');if(ct)ct.scrollTop=0;window.scrollTo(0,0);});
 }
 function renderPage(p){
-  ({home:renderHome,risks:renderRiskRegisterHome,'risk-workspace':renderRiskWorkspace,'gap-workspace':renderGapWorkspace,controls:renderControls,assets:renderAssets,evidence:renderEvidence,findings:renderFindings,vendors:renderVendors,audits:renderAudits,policies:renderPolicies,plugins:renderPlugins,reports:renderReports,'report-risks':renderReportRisks,'report-findings':renderReportFindings,'report-frameworks':renderReportFrameworks,'report-integrations':renderReportIntegrations,frameworks:renderFrameworks,'framework-nist':renderNistFrameworkPage,'framework-iso':()=>renderFrameworkSummaryPage('fiso-controls-tb',FRAMEWORK_LIBRARY.iso),'framework-soc2':()=>renderFrameworkSummaryPage('fsoc2-controls-tb',FRAMEWORK_LIBRARY.soc2),'framework-gdpr':()=>renderFrameworkSummaryPage('fgdpr-controls-tb',FRAMEWORK_LIBRARY.gdpr),'framework-pci':()=>renderFrameworkSummaryPage('fpci-controls-tb',FRAMEWORK_LIBRARY.pci),'framework-cis':()=>renderFrameworkSummaryPage('fcis-controls-tb',FRAMEWORK_LIBRARY.cis),settings:renderSettings}[p]||(() => {}))();
+  ({home:renderHome,risks:renderRiskRegisterHome,'risk-workspace':renderRiskWorkspace,'gap-workspace':renderGapWorkspace,controls:renderControls,assets:renderAssets,evidence:renderEvidence,findings:renderFindings,vendors:renderVendors,audits:renderAudits,policies:renderPolicies,'record-editor':renderRecordEditor,plugins:renderPlugins,reports:renderReports,'report-risks':renderReportRisks,'report-findings':renderReportFindings,'report-frameworks':renderReportFrameworks,'report-integrations':renderReportIntegrations,frameworks:renderFrameworks,'framework-nist':renderNistFrameworkPage,'framework-iso':()=>renderFrameworkSummaryPage('fiso-controls-tb',FRAMEWORK_LIBRARY.iso),'framework-soc2':()=>renderFrameworkSummaryPage('fsoc2-controls-tb',FRAMEWORK_LIBRARY.soc2),'framework-gdpr':()=>renderFrameworkSummaryPage('fgdpr-controls-tb',FRAMEWORK_LIBRARY.gdpr),'framework-pci':()=>renderFrameworkSummaryPage('fpci-controls-tb',FRAMEWORK_LIBRARY.pci),'framework-cis':()=>renderFrameworkSummaryPage('fcis-controls-tb',FRAMEWORK_LIBRARY.cis),settings:renderSettings}[p]||(() => {}))();
 }
 
 // ═══════════════════════════════════════════
