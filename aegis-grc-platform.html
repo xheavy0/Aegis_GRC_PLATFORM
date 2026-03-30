@@ -1758,6 +1758,102 @@ function notify(msg,t='success'){
 // ═══════════════════════════════════════════
 // BADGE HELPERS
 // ═══════════════════════════════════════════
+const EDITOR_CONFIG={
+  vendor:{label:'Vendor',collection:'vendors',page:'vendors',adapter:adaptVendor,endpoint:'vendors',fields:[{id:'name',label:'Vendor Name',type:'text',key:'name',required:true},{id:'category',label:'Category',type:'select',key:'category',options:['Cloud Provider','SaaS','Managed Service','Software']},{id:'risk',label:'Risk Level',type:'select',key:'risk',options:['Critical','High','Medium','Low'],apiKey:'risk_level',toApi:true},{id:'data',label:'Data Access',type:'select',key:'data',options:['PII','Confidential','Internal','Public'],metaKey:'dataAccess'},{id:'exp',label:'Contract Expiry',type:'date',key:'exp',apiKey:'contract_expiry'},{id:'status',label:'Status',type:'select',key:'status',options:['Active','Under Review','Inactive','Terminated'],toApi:true},{id:'contact',label:'Contact Name',type:'text',key:'contact',apiKey:'contact_name'},{id:'email',label:'Contact Email',type:'text',key:'email',apiKey:'contact_email'},{id:'website',label:'Website',type:'text',key:'website',apiKey:'website'},{id:'desc',label:'Description',type:'textarea',key:'desc',apiKey:'description'}]},
+  policy:{label:'Policy',collection:'policies',page:'policies',adapter:adaptPolicy,endpoint:'policies',fields:[{id:'name',label:'Policy Name',type:'text',key:'name',apiKey:'title',required:true},{id:'category',label:'Category',type:'select',key:'category',options:['Information Security','Data Protection','Access Control','Incident Response','Business Continuity']},{id:'version',label:'Version',type:'text',key:'version'},{id:'owner',label:'Owner',type:'text',key:'owner'},{id:'review',label:'Review Date',type:'date',key:'review',apiKey:'review_date'},{id:'status',label:'Status',type:'select',key:'status',options:['Draft','Under Review','Approved','Archived'],toApi:true},{id:'desc',label:'Description',type:'textarea',key:'desc',apiKey:'description'},{id:'content',label:'Policy Content',type:'textarea',key:'content',apiKey:'content'}]},
+  audit:{label:'Audit',collection:'audits',page:'audits',adapter:adaptAudit,endpoint:'audits',fields:[{id:'name',label:'Audit Name',type:'text',key:'name',apiKey:'title',required:true},{id:'framework',label:'Framework',type:'select',key:'framework',options:['NIST CSF 2.0','ISO 27001','SOC 2','GDPR','PCI DSS','CIS Controls'],metaKey:'framework'},{id:'type',label:'Type',type:'select',key:'type',options:['Internal','External','Regulatory','Vendor'],apiKey:'audit_type',toApi:true},{id:'auditor',label:'Auditor',type:'text',key:'auditor'},{id:'start',label:'Start Date',type:'date',key:'start',apiKey:'start_date'},{id:'end',label:'End Date',type:'date',key:'end',apiKey:'end_date'},{id:'status',label:'Status',type:'select',key:'status',options:['Planned','In Progress','Completed','Cancelled'],toApi:true},{id:'scope',label:'Scope',type:'textarea',key:'scope',apiKey:'scope'},{id:'desc',label:'Description',type:'textarea',key:'desc',apiKey:'description'}]},
+  asset:{label:'Asset',collection:'assets',page:'assets',adapter:adaptAsset,endpoint:'assets',fields:[{id:'name',label:'Asset Name',type:'text',key:'name',required:true},{id:'type',label:'Type',type:'select',key:'type',options:['Server','Workstation','Cloud','Database','Network','Application','Other'],apiKey:'asset_type',toApi:true},{id:'ip',label:'IP / Hostname',type:'text',key:'ip',apiKey:'ip_address'},{id:'os',label:'OS / Location',type:'text',key:'os',apiKey:'location'},{id:'criticality',label:'Criticality',type:'select',key:'criticality',options:['Critical','High','Medium','Low'],toApi:true},{id:'owner',label:'Owner',type:'text',key:'owner'},{id:'status',label:'Status',type:'select',key:'status',options:['Active','Inactive','Decommissioned'],metaKey:'status'},{id:'tags',label:'Tags',type:'text',key:'tags',apiKey:'tags'},{id:'desc',label:'Description',type:'textarea',key:'desc',apiKey:'description'}]},
+  evidence:{label:'Evidence',collection:'evidence',page:'evidence',adapter:adaptEvidence,endpoint:'evidence',fields:[{id:'name',label:'Evidence Name',type:'text',key:'name',apiKey:'title',required:true},{id:'source',label:'Source',type:'select',key:'source',options:['Manual','Active Directory','Okta','Tenable','Azure AD','API'],toApi:true},{id:'control',label:'NIST Control',type:'text',key:'control',disabled:true,help:'Existing control mapping is shown read-only in edit mode.'},{id:'status',label:'Status',type:'select',key:'status',options:['Compliant','Gap','Warning','Pending'],toApi:true},{id:'riskId',label:'Linked Risk',type:'risk-select',key:'riskId',metaKey:'riskId'},{id:'notes',label:'Notes',type:'textarea',key:'notes',apiKey:'description'}]},
+  gap:{label:'Gap',collection:'gaps',page:'gap-workspace',localOnly:true,fields:[{id:'name',label:'Gap Name',type:'text',key:'name',required:true},{id:'area',label:'Area',type:'select',key:'area',options:['Access Control','Governance','Monitoring','Third Party','Policy','Infrastructure']},{id:'severity',label:'Severity',type:'select',key:'severity',options:['Critical','High','Medium','Low']},{id:'status',label:'Status',type:'select',key:'status',options:['Open','In Progress','Mitigated','Closed']},{id:'owner',label:'Owner',type:'text',key:'owner'},{id:'framework',label:'Framework',type:'select',key:'framework',options:['NIST CSF 2.0','ISO 27001','SOC 2','GDPR','PCI DSS','CIS Controls']},{id:'source',label:'Source',type:'select',key:'source',options:['Control Review','Audit','Assessment','Evidence Review','Manual']},{id:'reference',label:'Control / Reference',type:'text',key:'reference'},{id:'desc',label:'Description',type:'textarea',key:'desc'}]},
+  risk:{label:'Risk',collection:'risks',page:'risk-workspace',adapter:adaptRisk,endpoint:'risks',fields:[{id:'name',label:'Risk Name',type:'text',key:'name',apiKey:'title',required:true},{id:'category',label:'Category',type:'select',key:'category',options:['Access Control','Data Protection','Infrastructure','Identity','Compliance','Vendor','Physical']},{id:'severity',label:'Severity',type:'select',key:'severity',options:['Critical','High','Medium','Low'],apiKey:'level',toApi:true},{id:'status',label:'Status',type:'select',key:'status',options:['Open','In Progress','Accepted','Closed'],toApi:true},{id:'likelihood',label:'Likelihood (1-5)',type:'select',key:'likelihood',options:['1','2','3','4','5']},{id:'impact',label:'Impact (1-5)',type:'select',key:'impact',options:['1','2','3','4','5']},{id:'owner',label:'Owner',type:'text',key:'owner'},{id:'due',label:'Due Date',type:'date',key:'due',apiKey:'due_date'},{id:'nist',label:'NIST Control',type:'select',key:'nist',options:['PR.AA-01','PR.AA-02','DE.CM-01','ID.AM-01','GV.RM-01'],metaKey:'nist'},{id:'desc',label:'Description',type:'textarea',key:'desc',apiKey:'description'}]}
+};
+let currentEditor=null;
+function getEditorRecord(type,id){return (D[EDITOR_CONFIG[type].collection]||[]).find(item=>item.id===id);}
+function editorFieldHtml(type,field,record){
+  const value=record[field.key]||'';
+  const inputId=`editor-${field.id}`;
+  let control='';
+  if(field.type==='textarea')control=`<textarea id="${inputId}" ${field.disabled?'disabled':''}>${value}</textarea>`;
+  else if(field.type==='select')control=`<select id="${inputId}" ${field.disabled?'disabled':''}>${field.options.map(opt=>`<option ${String(value)===String(opt)?'selected':''}>${opt}</option>`).join('')}</select>`;
+  else if(field.type==='risk-select')control=`<select id="${inputId}"><option value="">— No Risk —</option>${D.risks.map(r=>`<option value="${r.id}" ${value===r.id?'selected':''}>${r.name}</option>`).join('')}</select>`;
+  else control=`<input id="${inputId}" type="${field.type||'text'}" value="${value}" ${field.disabled?'disabled':''}>`;
+  return `<div class="form-group"><label>${field.label}</label>${control}${field.help?`<div class="doc-meta">${field.help}</div>`:''}</div>`;
+}
+function getEditorDocuments(type,id){return D.evidence.filter(e=>(e.notes||'').includes(`[entity:${type}:${id}]`)||(type==='evidence'&&e.id===id));}
+function renderEditorDocuments(){
+  if(!currentEditor)return;
+  const docsEl=document.getElementById('editor-doc-list');
+  if(!docsEl)return;
+  const docs=getEditorDocuments(currentEditor.type,currentEditor.id);
+  docsEl.innerHTML=docs.length?docs.map(doc=>`<div class="doc-item"><div style="font-weight:600">${doc.fileName||doc.name}</div><div class="doc-meta">${doc.status||'Pending'} • ${doc.created||''}</div></div>`).join(''):'<div class="doc-item" style="color:var(--text3)">No documents uploaded yet.</div>';
+}
+function renderRecordEditor(){
+  const title=document.getElementById('record-editor-title');
+  const sub=document.getElementById('record-editor-sub');
+  const body=document.getElementById('record-editor-body');
+  if(!currentEditor||!body){if(body)body.innerHTML='';return;}
+  const cfg=EDITOR_CONFIG[currentEditor.type];
+  const record=getEditorRecord(currentEditor.type,currentEditor.id);
+  if(!cfg||!record){body.innerHTML='<div class="card">Record not found.</div>';return;}
+  title.textContent=`Edit ${cfg.label} — ${record.name||record.title||'Record'}`;
+  sub.textContent=`Dedicated edit view for ${cfg.label.toLowerCase()} records with document upload support.`;
+  body.innerHTML=`<div class="editor-grid"><div class="card"><div class="section-bar"><button class="btn btn-ghost" onclick="nav('${currentEditor.returnPage||cfg.page}')">← Back</button><button class="btn btn-primary" onclick="saveRecordEditor()">Save Changes</button></div><div class="form-row">${cfg.fields.slice(0,Math.ceil(cfg.fields.length/2)).map(f=>editorFieldHtml(currentEditor.type,f,record)).join('')}</div>${cfg.fields.slice(Math.ceil(cfg.fields.length/2)).length?`<div class="form-row">${cfg.fields.slice(Math.ceil(cfg.fields.length/2)).map(f=>editorFieldHtml(currentEditor.type,f,record)).join('')}</div>`:''}</div><div class="editor-sidebar"><div class="card"><div class="card-title">Supporting Documents</div><div class="upload-drop">Upload a document for this ${cfg.label.toLowerCase()}.<input id="editor-doc-file" type="file"><button class="btn btn-primary btn-sm" style="margin-top:12px" onclick="uploadEditorDocument()">Upload Document</button></div></div><div class="card"><div class="card-title">Uploaded Documents</div><div id="editor-doc-list" class="doc-list"></div></div></div></div>`;
+  renderEditorDocuments();
+}
+function openRecordEditor(type,id,returnPage){currentEditor={type,id,returnPage:returnPage||EDITOR_CONFIG[type].page};nav('record-editor');}
+function collectEditorPayload(cfg){
+  const payload={},metaPatch={};
+  cfg.fields.forEach(field=>{
+    if(field.disabled)return;
+    const el=document.getElementById(`editor-${field.id}`);
+    if(!el)return;
+    const raw=el.value;
+    if(field.required&&!raw)throw new Error(field.label+' is required');
+    if(field.metaKey){metaPatch[field.metaKey]=raw;return;}
+    if(cfg.localOnly){payload[field.key]=raw;return;}
+    payload[field.apiKey||field.key]=field.toApi?toApiEnum(raw):raw;
+  });
+  return{payload,metaPatch};
+}
+function saveRecordEditor(){
+  if(!currentEditor)return;
+  const cfg=EDITOR_CONFIG[currentEditor.type],record=getEditorRecord(currentEditor.type,currentEditor.id);
+  if(!cfg||!record)return;
+  let data;
+  try{data=collectEditorPayload(cfg);}catch(e){notify(e.message,'error');return;}
+  if(Object.keys(data.metaPatch).length)setEntityMeta(currentEditor.type,currentEditor.id,data.metaPatch);
+  if(cfg.localOnly){Object.assign(record,data.payload);renderGapWorkspace();notify(cfg.label+' updated');nav(currentEditor.returnPage||cfg.page);return;}
+  api.patch('/'+cfg.endpoint+'/'+record.id,data.payload).then(updated=>{
+    const list=D[cfg.collection],idx=list.findIndex(item=>item.id===record.id);
+    if(idx>=0)list[idx]=cfg.adapter(updated);
+    if(currentEditor.type==='risk'){renderRisks();renderRiskWorkspace();renderRiskRegisterHome();}
+    if(currentEditor.type==='vendor')renderVendors();
+    if(currentEditor.type==='policy')renderPolicies();
+    if(currentEditor.type==='audit')renderAudits();
+    if(currentEditor.type==='asset')renderAssets();
+    if(currentEditor.type==='evidence')renderEvidence();
+    notify(cfg.label+' updated');
+    nav(currentEditor.returnPage||cfg.page);
+  }).catch(e=>notify('Update failed: '+e.message,'error'));
+}
+function uploadEditorDocument(){
+  if(!currentEditor)return;
+  const fileInput=document.getElementById('editor-doc-file');
+  const file=fileInput&&fileInput.files&&fileInput.files[0];
+  if(!file){notify('Choose a file first','error');return;}
+  const cfg=EDITOR_CONFIG[currentEditor.type],record=getEditorRecord(currentEditor.type,currentEditor.id),fd=new FormData();
+  fd.append('title',`${cfg.label} Document - ${record.name||record.title||record.id}`);
+  fd.append('description',`Attachment for ${cfg.label}: ${record.name||record.title||record.id}\n[entity:${currentEditor.type}:${currentEditor.id}]`);
+  fd.append('file',file);
+  api.postForm('/evidence/upload',fd).then(saved=>{
+    D.evidence.unshift(adaptEvidence(saved));
+    renderEvidence();
+    renderEditorDocuments();
+    fileInput.value='';
+    notify('Document uploaded');
+  }).catch(e=>notify('Upload failed: '+e.message,'error'));
+}
+
 function badge(s){
   const m={Critical:'b-red',High:'b-amber',Medium:'b-green',Low:'b-blue',Open:'b-red','In Progress':'b-amber',Resolved:'b-green',Compliant:'b-green',Gap:'b-red',Warning:'b-amber',Pending:'b-blue',Active:'b-green',Inactive:'b-gray',Implemented:'b-green',Partial:'b-amber',Planned:'b-blue','Not Implemented':'b-red',Draft:'b-gray','Under Review':'b-amber',Approved:'b-green',Expired:'b-red',Accepted:'b-teal',Closed:'b-gray','In Treatment':'b-amber'};
   return`<span class="badge ${m[s]||'b-gray'}">${s}</span>`;
@@ -3052,6 +3148,85 @@ function renderSettings(){
   renderAuditLog();
   renderRolesPerms();
   renderAuditorConfig();
+}
+
+function renderRisks(search='',filter=''){
+  let list=D.risks;
+  if(search)list=list.filter(r=>r.name.toLowerCase().includes(search.toLowerCase()));
+  if(filter)list=list.filter(r=>r.severity===filter);
+  const tb=document.getElementById('risks-tb');
+  if(!tb){renderRiskRegisterHome();return;}
+  tb.innerHTML=list.length?list.map(r=>{
+    const ev=D.evidence.filter(e=>e.riskId===r.id).length;
+    return`<tr><td><div style="font-weight:500">${r.name}</div><div style="font-size:11px;color:var(--text3)">${r.desc?r.desc.substring(0,60)+'...':''}</div></td><td>${r.category}</td><td>${badge(r.severity)}</td><td class="mono">${r.likelihood||'?'}x${r.impact||'?'}</td><td>${r.owner}</td><td>${badge(r.status)}</td><td><span class="badge b-purple">${r.nist||'—'}</span></td><td>${ev?`<span class="badge b-teal">${ev}</span>`:'—'}</td><td><div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn btn-ghost btn-sm" onclick="openRecordEditor('risk','${r.id}','risk-workspace')">Edit</button><button class="btn btn-danger btn-sm" onclick="del('risks','${r.id}',renderRisks)">X</button></div></td></tr>`;
+  }).join(''):'<tr><td colspan="9" style="text-align:center;color:var(--text3);padding:32px">No risks registered. Click "+ Add Risk" to begin.</td></tr>';
+  document.getElementById('nb-risks').textContent=D.risks.length;
+}
+function renderRiskWorkspace(){
+  const tb=document.getElementById('risk-workspace-tb');
+  if(!tb)return;
+  tb.innerHTML=D.risks.length?D.risks.map(r=>{
+    const ev=D.evidence.filter(e=>e.riskId===r.id).length;
+    return`<tr><td><div style="font-weight:500">${r.name}</div><div style="font-size:11px;color:var(--text3)">${r.desc?r.desc.substring(0,72)+'...':''}</div></td><td>${r.category}</td><td>${badge(r.severity)}</td><td class="mono">${r.likelihood||'?'}x${r.impact||'?'}</td><td>${r.owner||'—'}</td><td>${badge(r.status)}</td><td><span class="badge b-purple">${r.nist||'—'}</span></td><td>${ev?`<span class="badge b-teal">${ev}</span>`:'—'}</td><td><div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn btn-ghost btn-sm" onclick="openRecordEditor('risk','${r.id}','risk-workspace')">Edit</button><button class="btn btn-danger btn-sm" onclick="del('risks','${r.id}',renderRiskWorkspace)">X</button></div></td></tr>`;
+  }).join(''):'<tr><td colspan="9" style="text-align:center;color:var(--text3);padding:32px">No risks registered yet.</td></tr>';
+  renderRiskRegisterHome();
+}
+function renderGapWorkspace(){
+  const tb=document.getElementById('gap-workspace-tb');
+  if(!tb)return;
+  const gaps=getGapItems();
+  tb.innerHTML=gaps.length?gaps.map(g=>`<tr><td><div style="font-weight:500">${g.name}</div><div style="font-size:11px;color:var(--text3)">${g.reference||g.desc||'—'}</div></td><td>${g.area||'—'}</td><td>${badge(g.severity||'Medium')}</td><td>${badge(g.status||'Open')}</td><td>${g.owner||'—'}</td><td><span class="badge b-blue">${g.framework||'NIST CSF 2.0'}</span></td><td style="color:var(--text3)">${g.source||'Manual'}</td><td>${g.system?'—':`<div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn btn-ghost btn-sm" onclick="openRecordEditor('gap','${g.id}','gap-workspace')">Edit</button><button class="btn btn-danger btn-sm" onclick="deleteGap('${g.id}')">X</button></div>`}</td></tr>`).join(''):'<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:32px">No gaps registered yet.</td></tr>';
+  renderRiskRegisterHome();
+}
+function renderAssets(){
+  const tb=document.getElementById('assets-tb');
+  tb.innerHTML=D.assets.length?D.assets.map(a=>`<tr><td style="font-weight:500">${a.name}</td><td><span class="badge b-blue">${a.type}</span></td><td class="mono" style="font-size:12px">${a.ip||'—'}</td><td style="color:var(--text3)">${a.os||'—'}</td><td>${badge(a.criticality)}</td><td>${a.owner}</td><td>${badge(a.status)}</td><td><div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn btn-ghost btn-sm" onclick="openRecordEditor('asset','${a.id}','assets')">Edit</button><button class="btn btn-danger btn-sm" onclick="del('assets','${a.id}',renderAssets)">X</button></div></td></tr>`).join(''):'<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:32px">No assets added.</td></tr>';
+}
+function renderEvidence(){
+  const tb=document.getElementById('evidence-tb');
+  tb.innerHTML=D.evidence.length?D.evidence.map(e=>{
+    const risk=D.risks.find(r=>r.id===e.riskId);
+    return`<tr><td style="font-weight:500">${e.name}</td><td><span class="badge b-purple mono">${e.control||'—'}</span></td><td><span class="badge b-gray">${e.source||'—'}</span></td><td>${badge(e.status)}</td><td>${risk?`<span class="badge b-amber">${risk.name.substring(0,25)}</span>`:'—'}</td><td style="font-size:12px;color:var(--text3)">${e.created}</td><td><div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn btn-ghost btn-sm" onclick="openRecordEditor('evidence','${e.id}','evidence')">Edit</button><button class="btn btn-danger btn-sm" onclick="del('evidence','${e.id}',renderEvidence)">X</button></div></td></tr>`;
+  }).join(''):'<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:32px">No evidence collected yet.</td></tr>';
+}
+function renderVendors(){
+  const tb=document.getElementById('vendors-tb');
+  tb.innerHTML=D.vendors.length?D.vendors.map(v=>`<tr><td style="font-weight:500">${v.name}</td><td>${v.category}</td><td>${badge(v.risk)}</td><td><span class="badge b-gray">${v.data}</span></td><td style="font-size:12px;color:var(--text3)">${v.exp||'—'}</td><td>${badge(v.status)}</td><td><span class="badge b-green">0</span></td><td><div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn btn-ghost btn-sm" onclick="openRecordEditor('vendor','${v.id}','vendors')">Edit</button><button class="btn btn-danger btn-sm" onclick="del('vendors','${v.id}',renderVendors)">X</button></div></td></tr>`).join(''):'<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:32px">No vendors added.</td></tr>';
+}
+function renderAudits(){
+  const tb=document.getElementById('audits-tb');
+  tb.innerHTML=D.audits.length?D.audits.map(a=>`<tr><td style="font-weight:500">${a.name}</td><td><span class="badge b-blue">${a.framework}</span></td><td>${a.type}</td><td>${a.auditor}</td><td style="font-size:12px">${a.start||'—'}</td><td>${badge(a.status)}</td><td><span class="badge b-teal">${D.evidence.length}</span></td><td><div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn btn-ghost btn-sm" onclick="openRecordEditor('audit','${a.id}','audits')">Edit</button><button class="btn btn-danger btn-sm" onclick="del('audits','${a.id}',renderAudits)">X</button></div></td></tr>`).join(''):'<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:32px">No audits created.</td></tr>';
+}
+function renderPolicies(){
+  const tb=document.getElementById('policies-tb');
+  tb.innerHTML=D.policies.length?D.policies.map(p=>`<tr><td style="font-weight:500">${p.name}</td><td>${p.category}</td><td><span class="badge b-gray">${p.version||'v1.0'}</span></td><td>${p.owner}</td><td style="font-size:12px;color:var(--text3)">${p.review||'—'}</td><td>${badge(p.status)}</td><td><div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn btn-ghost btn-sm" onclick="openRecordEditor('policy','${p.id}','policies')">Edit</button><button class="btn btn-danger btn-sm" onclick="del('policies','${p.id}',renderPolicies)">X</button></div></td></tr>`).join(''):'<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:32px">No policies added.</td></tr>';
+}
+function addRisk(){
+  const name=V('r-name');if(!name){notify('Name required','error');return;}
+  const likeVal=parseInt(document.getElementById('r-like')?.value)||3;
+  const impVal=parseInt(document.getElementById('r-impact')?.value)||3;
+  const payload={title:name,category:V('r-cat'),description:V('r-desc'),level:toApiEnum(V('r-sev')||'medium'),status:toApiEnum(V('r-status')||'open'),likelihood:likeVal,impact:impVal,owner:V('r-owner'),due_date:null};
+  api.post('/risks',payload).then(r=>{D.risks.unshift(adaptRisk(r));setEntityMeta('risk',r.id,{nist:V('r-nist')||''});D.risks[0]=adaptRisk(r);closeModal('modal-risk');renderRisks();renderRiskWorkspace();renderRiskRegisterHome();notify('Risk registered');}).catch(e=>notify('Error: '+e.message,'error'));
+}
+function addAsset(){
+  const name=V('a-name');if(!name){notify('Name required','error');return;}
+  const payload={name,asset_type:toApiEnum(V('a-type')||'other'),ip_address:V('a-ip'),location:V('a-os'),criticality:toApiEnum(V('a-crit')||'medium'),owner:V('a-owner')};
+  api.post('/assets',payload).then(a=>{setEntityMeta('asset',a.id,{status:V('a-status')||'Active'});D.assets.unshift(adaptAsset(a));closeModal('modal-asset');renderAssets();notify('Asset added');}).catch(e=>notify('Error: '+e.message,'error'));
+}
+function addEvidence(){
+  const name=V('e-name');if(!name){notify('Name required','error');return;}
+  const payload={title:name,source:toApiEnum(V('e-source')||'manual'),status:toApiEnum(V('e-status')||'pending'),description:V('e-notes')};
+  api.post('/evidence',payload).then(e=>{setEntityMeta('evidence',e.id,{riskId:V('e-risk')||''});D.evidence.unshift(adaptEvidence(e));closeModal('modal-evidence');renderEvidence();notify('Evidence saved');}).catch(e=>notify('Error: '+e.message,'error'));
+}
+function addVendor(){
+  const name=V('v-name');if(!name){notify('Name required','error');return;}
+  const payload={name,category:V('v-cat'),risk_level:toApiEnum(V('v-risk')||'medium'),status:toApiEnum(V('v-status')||'active')};
+  api.post('/vendors',payload).then(v=>{setEntityMeta('vendor',v.id,{dataAccess:V('v-data')||''});D.vendors.unshift(adaptVendor(v));closeModal('modal-vendor');renderVendors();notify('Vendor added');}).catch(e=>notify('Error: '+e.message,'error'));
+}
+function addAudit(){
+  const name=V('au-name');if(!name){notify('Name required','error');return;}
+  const payload={title:name,audit_type:toApiEnum(V('au-type')||'internal'),auditor:V('au-auditor'),start_date:V('au-start')||null,status:toApiEnum(V('au-status')||'planned')};
+  api.post('/audits',payload).then(a=>{setEntityMeta('audit',a.id,{framework:V('au-fw')||'General'});D.audits.unshift(adaptAudit(a));closeModal('modal-audit');renderAudits();notify('Audit created');}).catch(e=>notify('Error: '+e.message,'error'));
 }
 
 // ── USERS ──
