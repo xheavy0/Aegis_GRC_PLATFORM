@@ -839,7 +839,7 @@ select option{background:var(--bg3);}
     <div class="card" style="margin-top:18px;">
       <div class="card-title" style="display:flex;align-items:center;justify-content:space-between;">
         <span>Risk Matrix</span>
-        <button class="btn btn-ghost" style="font-size:11px;padding:4px 10px;" onclick="openMatrixConfig()">&#9881; Configure</button>
+        <button id="btn-matrix-config" class="btn btn-ghost" style="font-size:11px;padding:4px 10px;display:none;" onclick="openMatrixConfig()">&#9881; Configure</button>
       </div>
       <div class="risk-matrix-wrap">
         <div class="risk-axis" id="risk-axis-labels">
@@ -1261,7 +1261,7 @@ select option{background:var(--bg3);}
 
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeModal('modal-matrix-config')">Cancel</button>
-      <button class="btn btn-primary" onclick="saveMatrixConfig()">Save Configuration</button>
+      <button id="btn-save-matrix" class="btn btn-primary" onclick="saveMatrixConfig()">Save Configuration</button>
     </div>
   </div>
 </div>
@@ -1941,6 +1941,9 @@ function renderHeatmap(){
   document.getElementById('hm-high').textContent=D.risks.filter(r=>r.severity==='High').length;
   document.getElementById('hm-med').textContent=D.risks.filter(r=>r.severity==='Medium').length;
   document.getElementById('hm-low').textContent=D.risks.filter(r=>r.severity==='Low').length;
+  // show Configure button only for admin
+  const cfgBtn=document.getElementById('btn-matrix-config');
+  if(cfgBtn)cfgBtn.style.display=isAdmin()?'':'none';
 }
 
 function renderNISTbars(){
@@ -2019,6 +2022,8 @@ function toggleFW(name,el){
 // ═══════════════════════════════════════════
 // RISK MATRIX CONFIG
 // ═══════════════════════════════════════════
+function isAdmin(){return (currentUser?.role||'').toLowerCase()==='admin';}
+
 // working copy for the configure modal
 let _mcDraft={likelihood_labels:[],impact_labels:[],cell_ratings:[]};
 const RATING_CYCLE=['low','medium','high','critical'];
@@ -2061,6 +2066,7 @@ function autoSuggestSeverity(){
 }
 
 function openMatrixConfig(){
+  const readOnly=!isAdmin();
   const mc=D.matrixConfig;
   // deep copy into draft
   _mcDraft={
@@ -2068,6 +2074,12 @@ function openMatrixConfig(){
     impact_labels:[...mc.impact_labels],
     cell_ratings:mc.cell_ratings.map(r=>[...r])
   };
+  // update modal title to show view-only if not admin
+  const modalTitle=document.querySelector('#modal-matrix-config h3');
+  if(modalTitle)modalTitle.textContent=readOnly?'Risk Matrix (View Only)':'⚙️ Configure Risk Matrix';
+  const saveBtn=document.getElementById('btn-save-matrix');
+  if(saveBtn)saveBtn.style.display=readOnly?'none':'';
+
   // render impact label inputs
   const impLabels=document.getElementById('mc-impact-labels');
   impLabels.innerHTML='';
@@ -2076,7 +2088,8 @@ function openMatrixConfig(){
     inp.className='mc-label-input';
     inp.value=lbl;
     inp.title=`Impact level ${i+1}`;
-    inp.oninput=e=>{_mcDraft.impact_labels[i]=e.target.value;};
+    inp.disabled=readOnly;
+    if(!readOnly)inp.oninput=e=>{_mcDraft.impact_labels[i]=e.target.value;};
     impLabels.appendChild(inp);
   });
   // render likelihood label inputs (top = index 4 = highest)
@@ -2087,15 +2100,17 @@ function openMatrixConfig(){
     inp.className='mc-likelihood-input';
     inp.value=_mcDraft.likelihood_labels[li];
     inp.title=`Likelihood level ${li+1}`;
-    inp.oninput=e=>{_mcDraft.likelihood_labels[li]=e.target.value;};
+    inp.disabled=readOnly;
+    if(!readOnly)inp.oninput=(e=>{const capLi=li;return ev=>{_mcDraft.likelihood_labels[capLi]=ev.target.value;};})(li);
     likLabels.appendChild(inp);
   }
   // render grid (top row = li=4, bottom row = li=0)
-  renderMcGrid();
+  renderMcGrid(readOnly);
   openModal('modal-matrix-config');
 }
 
-function renderMcGrid(){
+function renderMcGrid(readOnly){
+  const ro=readOnly??!isAdmin();
   const grid=document.getElementById('mc-grid');
   grid.innerHTML='';
   for(let li=4;li>=0;li--){
@@ -2104,15 +2119,20 @@ function renderMcGrid(){
       const cell=document.createElement('div');
       cell.className=`mc-cell mc-${rating}`;
       cell.textContent=rating.charAt(0).toUpperCase()+rating.slice(1);
-      cell.onclick=(()=>{
-        const capLi=li;const capIi=ii;
-        return ()=>{
-          const cur=_mcDraft.cell_ratings[capLi][capIi];
-          const next=RATING_CYCLE[(RATING_CYCLE.indexOf(cur)+1)%RATING_CYCLE.length];
-          _mcDraft.cell_ratings[capLi][capIi]=next;
-          renderMcGrid();
-        };
-      })();
+      if(!ro){
+        cell.onclick=(()=>{
+          const capLi=li;const capIi=ii;
+          return ()=>{
+            const cur=_mcDraft.cell_ratings[capLi][capIi];
+            const next=RATING_CYCLE[(RATING_CYCLE.indexOf(cur)+1)%RATING_CYCLE.length];
+            _mcDraft.cell_ratings[capLi][capIi]=next;
+            renderMcGrid(false);
+          };
+        })();
+      }else{
+        cell.style.cursor='default';
+        cell.title='View only — Admin can edit';
+      }
       grid.appendChild(cell);
     }
   }
