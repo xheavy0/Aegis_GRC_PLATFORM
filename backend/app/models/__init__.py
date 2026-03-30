@@ -7,5 +7,6 @@ from app.models.vendor import Vendor
 from app.models.audit import Audit
 from app.models.policy import Policy
 from app.models.evidence import Evidence
+from app.models.attachment import Attachment
 from app.models.framework import Framework, FrameworkControl
 from app.models.risk_matrix import RiskMatrixConfig

@@ -5,7 +5,7 @@ import os
 
 from app.config import settings
 from app.database import engine, Base, SessionLocal
-from app.routers import auth, users, risks, controls, assets, findings, vendors, audits, policies, evidence, frameworks, reports
+from app.routers import auth, users, risks, controls, assets, findings, vendors, audits, policies, evidence, frameworks, reports, attachments
 from app.routers import risk_matrix
 import app.models  # noqa: F401 - registers all models with SQLAlchemy
 
@@ -48,6 +48,7 @@ app.include_router(vendors.router,    prefix="/api/vendors",    tags=["Vendors"]
 app.include_router(audits.router,     prefix="/api/audits",     tags=["Audits"])
 app.include_router(policies.router,   prefix="/api/policies",   tags=["Policies"])
 app.include_router(evidence.router,   prefix="/api/evidence",   tags=["Evidence"])
+app.include_router(attachments.router, prefix="/api/attachments", tags=["Attachments"])
 app.include_router(frameworks.router, prefix="/api/frameworks", tags=["Frameworks"])
 app.include_router(reports.router,    prefix="/api/reports",    tags=["Reports"])
 app.include_router(risk_matrix.router, prefix="/api/risk-matrix", tags=["Risk Matrix"])

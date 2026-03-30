@@ -3444,6 +3444,63 @@ function del(col,id,fn){
   }
 }
 
+let currentEditorDocs=[];
+function attachmentUrl(path){
+  return path?'/'+String(path).replace(/\\/g,'/'):'';
+}
+function loadEditorDocuments(){
+  if(!currentEditor)return Promise.resolve([]);
+  return api.get(`/attachments?entity_type=${encodeURIComponent(currentEditor.type)}&entity_id=${encodeURIComponent(currentEditor.id)}`)
+    .then(docs=>{currentEditorDocs=docs;return docs;})
+    .catch(e=>{currentEditorDocs=[];notify('Could not load documents: '+e.message,'error');return [];});
+}
+function renderEditorDocuments(){
+  const docsEl=document.getElementById('editor-doc-list');
+  if(!docsEl)return;
+  docsEl.innerHTML=currentEditorDocs.length?currentEditorDocs.map(doc=>`<div class="doc-item"><div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start"><div><div style="font-weight:600">${doc.file_name||doc.title}</div><div class="doc-meta">${doc.title||''}</div><div class="doc-meta">${Math.max(1,Math.round((doc.file_size||0)/1024))} KB • ${(doc.created_at||'').slice(0,10)}</div></div><div style="display:flex;gap:8px;flex-shrink:0"><a class="btn btn-ghost btn-sm" href="${attachmentUrl(doc.file_path)}" target="_blank" rel="noopener noreferrer">Open</a><button class="btn btn-danger btn-sm" onclick="deleteEditorDocument('${doc.id}')">X</button></div></div></div>`).join(''):'<div class="doc-item" style="color:var(--text3)">No documents uploaded yet.</div>';
+}
+function deleteEditorDocument(id){
+  if(!confirm('Delete this document?'))return;
+  api.del('/attachments/'+id)
+    .then(()=>loadEditorDocuments().then(()=>{renderEditorDocuments();notify('Document deleted','info');}))
+    .catch(e=>notify('Delete failed: '+e.message,'error'));
+}
+function renderRecordEditor(){
+  const title=document.getElementById('record-editor-title');
+  const sub=document.getElementById('record-editor-sub');
+  const body=document.getElementById('record-editor-body');
+  if(!currentEditor||!body){if(body)body.innerHTML='';return;}
+  const cfg=EDITOR_CONFIG[currentEditor.type];
+  const record=getEditorRecord(currentEditor.type,currentEditor.id);
+  if(!cfg||!record){body.innerHTML='<div class="card">Record not found.</div>';return;}
+  title.textContent=`Edit ${cfg.label} — ${record.name||record.title||'Record'}`;
+  sub.textContent=`Dedicated edit view for ${cfg.label.toLowerCase()} records with full edit options and document attachments.`;
+  body.innerHTML=`<div class="editor-grid"><div class="card"><div class="section-bar"><button class="btn btn-ghost" onclick="nav('${currentEditor.returnPage||cfg.page}')">← Back</button><button class="btn btn-primary" onclick="saveRecordEditor()">Save Changes</button></div><div class="form-row">${cfg.fields.slice(0,Math.ceil(cfg.fields.length/2)).map(f=>editorFieldHtml(currentEditor.type,f,record)).join('')}</div>${cfg.fields.slice(Math.ceil(cfg.fields.length/2)).length?`<div class="form-row">${cfg.fields.slice(Math.ceil(cfg.fields.length/2)).map(f=>editorFieldHtml(currentEditor.type,f,record)).join('')}</div>`:''}</div><div class="editor-sidebar"><div class="card"><div class="card-title">Supporting Documents</div><div class="upload-drop">Upload a document for this ${cfg.label.toLowerCase()}.<input id="editor-doc-file" type="file"><button class="btn btn-primary btn-sm" style="margin-top:12px" onclick="uploadEditorDocument()">Upload Document</button></div></div><div class="card"><div class="card-title">Uploaded Documents</div><div id="editor-doc-list" class="doc-list"><div class="doc-item" style="color:var(--text3)">Loading...</div></div></div></div></div>`;
+  loadEditorDocuments().then(()=>renderEditorDocuments());
+}
+function openRecordEditor(type,id,returnPage){
+  currentEditor={type,id,returnPage:returnPage||EDITOR_CONFIG[type].page};
+  currentEditorDocs=[];
+  nav('record-editor');
+}
+function uploadEditorDocument(){
+  if(!currentEditor)return;
+  const fileInput=document.getElementById('editor-doc-file');
+  const file=fileInput&&fileInput.files&&fileInput.files[0];
+  if(!file){notify('Choose a file first','error');return;}
+  const cfg=EDITOR_CONFIG[currentEditor.type];
+  const record=getEditorRecord(currentEditor.type,currentEditor.id);
+  const fd=new FormData();
+  fd.append('entity_type',currentEditor.type);
+  fd.append('entity_id',String(currentEditor.id));
+  fd.append('title',`${cfg.label} Attachment - ${record.name||record.title||record.id}`);
+  fd.append('description',`Attachment for ${cfg.label}: ${record.name||record.title||record.id}`);
+  fd.append('file',file);
+  api.postForm('/attachments/upload',fd)
+    .then(()=>loadEditorDocuments().then(()=>{renderEditorDocuments();fileInput.value='';notify('Document uploaded');}))
+    .catch(e=>notify('Upload failed: '+e.message,'error'));
+}
+
 // INIT
 document.getElementById('expand-fab').style.display='none';
 (function(){const wd=document.getElementById('welcome-date');if(wd){const d=new Date();wd.textContent=d.toLocaleDateString('en-GB',{weekday:'long',year:'numeric',month:'long',day:'numeric'});}})();
