@@ -1163,11 +1163,11 @@ select option{background:var(--bg3);}
     </div>
 
     <div class="tabs">
-      <div class="tab active" onclick="settingsTab(this,'st-users')">👥 Users</div>
-      <div class="tab" onclick="settingsTab(this,'st-roles')">🔑 Roles & Permissions</div>
-      <div class="tab" onclick="settingsTab(this,'st-log')">📜 Audit Log</div>
-      <div class="tab" onclick="settingsTab(this,'st-auditor')">👁️ Auditor Mode</div>
-      <div class="tab" onclick="settingsTab(this,'st-appearance')">🎨 Appearance</div>
+      <div class="tab active admin-tab" onclick="settingsTab(this,'st-users')">👥 Users</div>
+      <div class="tab admin-tab" onclick="settingsTab(this,'st-roles')">🔑 Roles & Permissions</div>
+      <div class="tab admin-tab" onclick="settingsTab(this,'st-log')">📜 Audit Log</div>
+      <div class="tab admin-tab" onclick="settingsTab(this,'st-auditor')">👁️ Auditor Mode</div>
+      <div class="tab" id="tab-appearance" onclick="settingsTab(this,'st-appearance')">🎨 Appearance</div>
     </div>
 
     <!-- USERS -->
@@ -1317,6 +1317,18 @@ select option{background:var(--bg3);}
     <div class="form-row"><div class="form-group"><label>Likelihood (1–5)</label><select id="r-like" onchange="autoSuggestSeverity()"></select></div><div class="form-group"><label>Impact (1–5)</label><select id="r-impact" onchange="autoSuggestSeverity()"></select></div></div>
     <div class="form-row"><div class="form-group"><label>Owner</label><input id="r-owner" placeholder="e.g. IT Security Team"></div><div class="form-group"><label>NIST Control</label><select id="r-nist"><option>PR.AA-01</option><option>PR.AA-02</option><option>DE.CM-01</option><option>ID.AM-01</option><option>GV.RM-01</option></select></div></div>
     <div class="modal-actions"><button class="btn btn-ghost" onclick="closeModal('modal-risk')">Cancel</button><button class="btn btn-primary" onclick="addRisk()">Register Risk</button></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-edit-risk">
+  <div class="modal"><h3>✏️ Edit Risk</h3>
+    <input type="hidden" id="er-id">
+    <div class="form-row"><div class="form-group"><label>Risk Name</label><input id="er-name" placeholder="Risk name"></div><div class="form-group"><label>Category</label><select id="er-cat"><option>Access Control</option><option>Data Protection</option><option>Infrastructure</option><option>Identity</option><option>Compliance</option><option>Vendor</option><option>Physical</option></select></div></div>
+    <div class="form-group"><label>Description</label><textarea id="er-desc" placeholder="Describe the risk scenario..."></textarea></div>
+    <div class="form-row"><div class="form-group"><label>Severity</label><select id="er-sev"><option>Critical</option><option>High</option><option>Medium</option><option>Low</option></select></div><div class="form-group"><label>Status</label><select id="er-status"><option>Open</option><option>In Treatment</option><option>Accepted</option><option>Closed</option></select></div></div>
+    <div class="form-row"><div class="form-group"><label>Likelihood (1–5)</label><select id="er-like"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select></div><div class="form-group"><label>Impact (1–5)</label><select id="er-impact"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select></div></div>
+    <div class="form-row"><div class="form-group"><label>Owner</label><input id="er-owner" placeholder="e.g. IT Security Team"></div><div class="form-group"><label>NIST Control</label><select id="er-nist"><option>PR.AA-01</option><option>PR.AA-02</option><option>DE.CM-01</option><option>ID.AM-01</option><option>GV.RM-01</option></select></div></div>
+    <div class="modal-actions"><button class="btn btn-ghost" onclick="closeModal('modal-edit-risk')">Cancel</button><button class="btn btn-primary" onclick="saveEditRisk()">Save Changes</button></div>
   </div>
 </div>
 
@@ -2218,6 +2230,30 @@ function addRisk(){
   const payload={title:name,category:V('r-cat'),description:V('r-desc'),level:toApiEnum(V('r-sev')||'medium'),status:toApiEnum(V('r-status')||'open'),likelihood:likeVal,impact:impVal,owner:V('r-owner')};
   api.post('/risks',payload).then(r=>{D.risks.unshift(adaptRisk(r));closeModal('modal-risk');renderRisks();renderRiskWorkspace();renderRiskRegisterHome();notify('Risk registered');}).catch(e=>notify('Error: '+e.message,'error'));
 }
+function openEditRisk(id){
+  const r=D.risks.find(x=>x.id===id);if(!r)return;
+  document.getElementById('er-id').value=id;
+  document.getElementById('er-name').value=r.name||'';
+  const catSel=document.getElementById('er-cat');
+  [...catSel.options].forEach(o=>{o.selected=o.value===r.category;});
+  document.getElementById('er-desc').value=r.desc||'';
+  const sevSel=document.getElementById('er-sev');
+  [...sevSel.options].forEach(o=>{o.selected=o.value.toLowerCase()===(r.severity||'').toLowerCase();});
+  const stSel=document.getElementById('er-status');
+  [...stSel.options].forEach(o=>{o.selected=o.value.toLowerCase()===(r.status||'').toLowerCase().replace('_',' ');});
+  document.getElementById('er-like').value=r.likelihood||3;
+  document.getElementById('er-impact').value=r.impact||3;
+  document.getElementById('er-owner').value=r.owner||'';
+  const nistSel=document.getElementById('er-nist');
+  [...nistSel.options].forEach(o=>{o.selected=o.value===(r.nist||'GV.RM-01');});
+  openModal('modal-edit-risk');
+}
+function saveEditRisk(){
+  const id=document.getElementById('er-id').value;if(!id)return;
+  const name=document.getElementById('er-name').value.trim();if(!name){notify('Name required','error');return;}
+  const payload={title:name,category:document.getElementById('er-cat').value,description:document.getElementById('er-desc').value,level:toApiEnum(document.getElementById('er-sev').value||'medium'),status:toApiEnum(document.getElementById('er-status').value||'open'),likelihood:parseInt(document.getElementById('er-like').value)||3,impact:parseInt(document.getElementById('er-impact').value)||3,owner:document.getElementById('er-owner').value};
+  api.patch('/risks/'+id,payload).then(r=>{const i=D.risks.findIndex(x=>x.id===id);if(i>=0)D.risks[i]=adaptRisk(r);closeModal('modal-edit-risk');renderRisks();renderRiskWorkspace();renderRiskRegisterHome();notify('Risk updated');}).catch(e=>notify('Error: '+e.message,'error'));
+}
 function renderRiskRegisterHome(){
   const risksEl=document.getElementById('risk-card-total');
   const gapsEl=document.getElementById('gap-card-total');
@@ -2233,7 +2269,7 @@ function renderRisks(search='',filter=''){
   if(!tb){renderRiskRegisterHome();return;}
   tb.innerHTML=list.length?list.map(r=>{
     const ev=D.evidence.filter(e=>e.riskId===r.id).length;
-    return`<tr><td><div style="font-weight:500">${r.name}</div><div style="font-size:11px;color:var(--text3)">${r.desc?r.desc.substring(0,60)+'…':''}</div></td><td>${r.category}</td><td>${badge(r.severity)}</td><td class="mono">${r.likelihood||'?'}×${r.impact||'?'}</td><td>${r.owner}</td><td>${badge(r.status)}</td><td><span class="badge b-purple">${r.nist}</span></td><td>${ev?`<span class="badge b-teal">${ev}</span>`:'—'}</td><td><button class="btn btn-danger btn-sm" onclick="del('risks','${r.id}',renderRisks)">✕</button></td></tr>`;
+    return`<tr><td><div style="font-weight:500">${r.name}</div><div style="font-size:11px;color:var(--text3)">${r.desc?r.desc.substring(0,60)+'…':''}</div></td><td>${r.category}</td><td>${badge(r.severity)}</td><td class="mono">${r.likelihood||'?'}×${r.impact||'?'}</td><td>${r.owner}</td><td>${badge(r.status)}</td><td><span class="badge b-purple">${r.nist}</span></td><td>${ev?`<span class="badge b-teal">${ev}</span>`:'—'}</td><td style="white-space:nowrap"><button class="btn btn-ghost btn-sm" onclick="openEditRisk('${r.id}')">✏️</button> <button class="btn btn-danger btn-sm" onclick="del('risks','${r.id}',renderRisks)">✕</button></td></tr>`;
   }).join(''):'<tr><td colspan="9" style="text-align:center;color:var(--text3);padding:32px">No risks registered. Click "+ Add Risk" to begin.</td></tr>';
   document.getElementById('nb-risks').textContent=D.risks.length;
 }
@@ -2259,7 +2295,7 @@ function renderRiskWorkspace(){
   if(!tb)return;
   tb.innerHTML=D.risks.length?D.risks.map(r=>{
     const ev=D.evidence.filter(e=>e.riskId===r.id).length;
-    return`<tr><td><div style="font-weight:500">${r.name}</div><div style="font-size:11px;color:var(--text3)">${r.desc?r.desc.substring(0,72)+'…':''}</div></td><td>${r.category}</td><td>${badge(r.severity)}</td><td class="mono">${r.likelihood||'?'}×${r.impact||'?'}</td><td>${r.owner||'—'}</td><td>${badge(r.status)}</td><td><span class="badge b-purple">${r.nist||'—'}</span></td><td>${ev?`<span class="badge b-teal">${ev}</span>`:'—'}</td><td><button class="btn btn-danger btn-sm" onclick="del('risks','${r.id}',renderRiskWorkspace)">✕</button></td></tr>`;
+    return`<tr><td><div style="font-weight:500">${r.name}</div><div style="font-size:11px;color:var(--text3)">${r.desc?r.desc.substring(0,72)+'…':''}</div></td><td>${r.category}</td><td>${badge(r.severity)}</td><td class="mono">${r.likelihood||'?'}×${r.impact||'?'}</td><td>${r.owner||'—'}</td><td>${badge(r.status)}</td><td><span class="badge b-purple">${r.nist||'—'}</span></td><td>${ev?`<span class="badge b-teal">${ev}</span>`:'—'}</td><td style="white-space:nowrap"><button class="btn btn-ghost btn-sm" onclick="openEditRisk('${r.id}')">✏️</button> <button class="btn btn-danger btn-sm" onclick="del('risks','${r.id}',renderRiskWorkspace)">✕</button></td></tr>`;
   }).join(''):'<tr><td colspan="9" style="text-align:center;color:var(--text3);padding:32px">No risks registered yet.</td></tr>';
   renderRiskRegisterHome();
 }
@@ -3015,6 +3051,19 @@ function settingsTab(el,id){
 }
 
 function renderSettings(){
+  const admin=isAdmin();
+  document.querySelectorAll('#page-settings .admin-tab').forEach(t=>t.style.display=admin?'':'none');
+  const sub=document.querySelector('#page-settings .page-sub');
+  if(sub)sub.textContent=admin?'User management, roles, permissions, audit log, and auditor mode simulation':'Appearance settings';
+  if(!admin){
+    // force Appearance tab active
+    document.querySelectorAll('#page-settings .tab').forEach(t=>t.classList.remove('active'));
+    const at=document.getElementById('tab-appearance');if(at)at.classList.add('active');
+    ['st-users','st-roles','st-log','st-auditor','st-appearance'].forEach(id=>{
+      const e=document.getElementById(id);if(e)e.style.display=id==='st-appearance'?'block':'none';
+    });
+    return;
+  }
   renderUsers();
   renderAuditLog();
   renderRolesPerms();
