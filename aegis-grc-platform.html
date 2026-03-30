@@ -1410,9 +1410,9 @@ select option{background:var(--bg3);}
 
 <div class="modal-overlay" id="modal-adduser">
   <div class="modal"><h3>👤 Add User</h3>
-    <div class="form-row"><div class="form-group"><label>Full Name</label><input id="u-name" placeholder="e.g. Giorgi Beridze"></div><div class="form-group"><label>Email</label><input id="u-email" placeholder="g.beridze@company.ge"></div></div>
-    <div class="form-row"><div class="form-group"><label>Role</label><select id="u-role"><option>Admin</option><option>GRC Officer</option><option>Auditor</option><option>Viewer</option></select></div><div class="form-group"><label>Department</label><input id="u-dept" placeholder="IT Security"></div></div>
-    <div class="form-group"><label>Status</label><select id="u-status"><option>Active</option><option>Inactive</option></select></div>
+    <div class="form-row"><div class="form-group"><label>Full Name</label><input id="u-name" placeholder="e.g. Giorgi Beridze"></div><div class="form-group"><label>Email</label><input id="u-email" type="email" placeholder="g.beridze@company.ge"></div></div>
+    <div class="form-row"><div class="form-group"><label>Password</label><input id="u-pass" type="password" placeholder="Min 8 characters"></div><div class="form-group"><label>Role</label><select id="u-role"><option value="admin">Admin</option><option value="analyst" selected>Analyst</option><option value="auditor">Auditor</option><option value="viewer">Viewer</option></select></div></div>
+    <div class="form-group"><label>Status</label><select id="u-status"><option value="true">Active</option><option value="false">Inactive</option></select></div>
     <div class="modal-actions"><button class="btn btn-ghost" onclick="closeModal('modal-adduser')">Cancel</button><button class="btn btn-primary" onclick="addUser()">Add User</button></div>
   </div>
 </div>
@@ -1574,6 +1574,18 @@ function syncCurrentUser(){
 }
 
 // ─── ADAPTERS: API → D format ───
+const ROLE_COLORS={admin:'#3b82f6',analyst:'#10b981',auditor:'#f59e0b',viewer:'#64748b'};
+const adaptApiUser=u=>({
+  id:u.id,
+  name:u.full_name,
+  email:u.email,
+  role:toDisplayEnum(u.role),
+  _role:u.role,  // raw value for API calls
+  dept:'',
+  status:u.is_active?'Active':'Inactive',
+  initials:(u.full_name||u.email).split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase(),
+  color:ROLE_COLORS[u.role]||'#64748b',
+});
 const adaptRisk=r=>({id:r.id,name:r.title,title:r.title,desc:r.description||'',category:r.category||'',severity:toDisplayEnum(r.level),status:toDisplayEnum(r.status),likelihood:String(r.likelihood),impact:String(r.impact),owner:r.owner||'',nist:'',created:r.created_at?.slice(0,10)||today()});
 const adaptControl=c=>({id:c.id,controlId:c.framework_ref||String(c.id).slice(0,8),name:c.title,func:toDisplayEnum(c.control_type),sub:c.framework||'',status:toDisplayEnum(c.status),solution:c.effectiveness||'',desc:c.description||'',created:c.created_at?.slice(0,10)||today()});
 const adaptAsset=a=>({id:a.id,name:a.name,type:toDisplayEnum(a.asset_type),ip:a.ip_address||'',os:a.location||'',criticality:toDisplayEnum(a.criticality),owner:a.owner||'',status:'Active',created:a.created_at?.slice(0,10)||today()});
@@ -1605,6 +1617,14 @@ async function loadAllData(){
       D.matrixConfig=mc;
       populateRiskFormDropdowns();
     }catch(e){console.warn('Matrix config load failed, using defaults:',e);}
+    // load users (admin only — ignore if not admin)
+    try{
+      const users=await api.get('/users');
+      D.users=users.map(adaptApiUser);
+    }catch(e){
+      // non-admin: keep only currentUser in the list
+      syncCurrentUser();
+    }
   }catch(e){console.error('loadAllData error:',e);}
 }
 
@@ -3003,9 +3023,19 @@ function renderSettings(){
 
 // ── USERS ──
 function addUser(){
+  const name=V('u-name');const email=V('u-email');const pass=V('u-pass');
+  if(!name){notify('Name required','error');return;}
+  if(!email){notify('Email required','error');return;}
+  if(!pass||pass.length<8){notify('Password must be at least 8 characters','error');return;}
+  const payload={full_name:name,email,password:pass,role:V('u-role')||'viewer',is_active:document.getElementById('u-status').value==='true'};
+  api.post('/users',payload)
+    .then(u=>{D.users.push(adaptApiUser(u));closeModal('modal-adduser');renderUsers();notify('User added');})
+    .catch(e=>notify('Error: '+e.message,'error'));
+}
+function _addUserLegacy(){
   const u={
     id:uid(),name:V('u-name'),email:V('u-email'),role:V('u-role'),
-    dept:V('u-dept'),status:V('u-status'),
+    dept:'',status:V('u-status'),
     initials:V('u-name').split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2),
     color:['#3b82f6','#8b5cf6','#f59e0b','#10b981','#ef4444','#06b6d4'][Math.floor(Math.random()*6)]
   };
@@ -3016,29 +3046,42 @@ function addUser(){
 }
 function renderUsers(){
   const el=document.getElementById('users-list');
-  const roleClass={Admin:'role-admin','GRC Officer':'role-officer',Auditor:'role-auditor',Viewer:'role-viewer'};
+  if(!el)return;
+  const roleClass={admin:'role-admin',Admin:'role-admin',analyst:'role-officer',Analyst:'role-officer',auditor:'role-auditor',Auditor:'role-auditor',viewer:'role-viewer',Viewer:'role-viewer'};
+  const isSelf=u=>currentUser&&(u.id===currentUser.id||u.email===currentUser.email);
   el.innerHTML=D.users.map(u=>`
     <div class="user-row">
-      <div class="avatar" style="background:${u.color}20;color:${u.color};font-size:13px;width:38px;height:38px;font-weight:700">${u.initials}</div>
+      <div class="avatar" style="background:${u.color}20;color:${u.color};font-size:13px;width:38px;height:38px;font-weight:700">${u.initials||'?'}</div>
       <div style="flex:1;min-width:0">
-        <div style="font-weight:600;font-size:14px">${u.name}</div>
-        <div style="font-size:12px;color:var(--text3)">${u.email} · ${u.dept}</div>
+        <div style="font-weight:600;font-size:14px">${u.name||u.email}</div>
+        <div style="font-size:12px;color:var(--text3)">${u.email}${u.status==='Inactive'?' · Inactive':''}</div>
       </div>
-      <span class="role-chip ${roleClass[u.role]||'role-viewer'}">${u.role}</span>
+      <span class="role-chip ${roleClass[u._role||u.role]||'role-viewer'}">${u.role}</span>
       ${badge(u.status)}
-      <select class="filter-sel" style="font-size:12px;padding:5px 8px;" onchange="changeUserRole('${u.id}',this.value)">
-        <option ${u.role==='Admin'?'selected':''}>Admin</option>
-        <option ${u.role==='GRC Officer'?'selected':''}>GRC Officer</option>
-        <option ${u.role==='Auditor'?'selected':''}>Auditor</option>
-        <option ${u.role==='Viewer'?'selected':''}>Viewer</option>
-      </select>
-      ${u.id!=='u1'?`<button class="btn btn-danger btn-sm" onclick="del('users','${u.id}',renderUsers)">✕</button>`:'<span style="font-size:11px;color:var(--text3)">You</span>'}
+      ${isAdmin()?`<select class="filter-sel" style="font-size:12px;padding:5px 8px;" onchange="changeUserRole('${u.id}',this.value)">
+        <option value="admin" ${(u._role||'')===('admin')?'selected':''}>Admin</option>
+        <option value="analyst" ${(u._role||'')==='analyst'?'selected':''}>Analyst</option>
+        <option value="auditor" ${(u._role||'')==='auditor'?'selected':''}>Auditor</option>
+        <option value="viewer" ${(u._role||'')==='viewer'?'selected':''}>Viewer</option>
+      </select>`:''}
+      ${isAdmin()&&!isSelf(u)?`<button class="btn btn-danger btn-sm" onclick="deleteUser('${u.id}')">✕</button>`:(isSelf(u)?'<span style="font-size:11px;color:var(--text3)">You</span>':'')}
     </div>`).join('');
 }
 function changeUserRole(id,role){
   const u=D.users.find(u=>u.id===id);if(!u)return;
-  logAction('Changed role of '+u.name+': '+u.role+' → '+role,'users','🔑');
-  u.role=role;save();renderUsers();notify('Role updated');
+  api.patch('/users/'+id,{role})
+    .then(updated=>{
+      const idx=D.users.findIndex(x=>x.id===id);
+      if(idx>=0)D.users[idx]=adaptApiUser(updated);
+      renderUsers();notify('Role updated');
+    })
+    .catch(e=>notify('Error: '+e.message,'error'));
+}
+function deleteUser(id){
+  if(!confirm('Delete this user?'))return;
+  api.del('/users/'+id)
+    .then(()=>{D.users=D.users.filter(u=>u.id!==id);renderUsers();notify('User deleted');})
+    .catch(e=>notify('Error: '+e.message,'error'));
 }
 
 // ── ROLES & PERMISSIONS ──
