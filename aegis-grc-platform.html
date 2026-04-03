@@ -1831,7 +1831,7 @@ async function loadAllData(){
 // ═══════════════════════════════════════════
 const D={
   risks:[],gaps:[],controls:[],assets:[],evidence:[],findings:[],vendors:[],
-  audits:[],policies:[],evRules:[],schedules:[],auditLog:[],users:[],
+  audits:[],policies:[],evRules:[],schedules:[],auditLog:[],users:[],riskMeta:{},attachments:{},
   matrixConfig:{
     likelihood_labels:["Rare","Unlikely","Possible","Likely","Almost Certain"],
     impact_labels:["Negligible","Minor","Moderate","Major","Catastrophic"],
@@ -2414,7 +2414,8 @@ function addRisk(){
   const likeVal=parseInt(document.getElementById('r-like')?.value)||3;
   const impVal=parseInt(document.getElementById('r-impact')?.value)||3;
   const payload={title:name,category:V('r-cat'),description:V('r-desc'),level:toApiEnum(V('r-sev')||'medium'),status:toApiEnum(V('r-status')||'open'),likelihood:likeVal,impact:impVal,owner:V('r-owner')};
-  api.post('/risks',payload).then(r=>{D.risks.unshift(adaptRisk(r));closeModal('modal-risk');renderRisks();renderRiskWorkspace();renderRiskRegisterHome();notify('Risk registered');}).catch(e=>notify('Error: '+e.message,'error'));
+  const nistVal=V('r-nist')||'GV.RM-01';
+  api.post('/risks',payload).then(r=>{const adapted=adaptRisk(r);if(!D.riskMeta)D.riskMeta={};D.riskMeta[adapted.id]={nist:nistVal};save();D.risks.unshift(adapted);closeModal('modal-risk');renderRisks();renderRiskWorkspace();renderRiskRegisterHome();notify('Risk registered');}).catch(e=>notify('Error: '+e.message,'error'));
 }
 function openEditRisk(id){
   const r=D.risks.find(x=>x.id===id);if(!r)return;
@@ -2455,7 +2456,8 @@ function renderRisks(search='',filter=''){
   if(!tb){renderRiskRegisterHome();return;}
   tb.innerHTML=list.length?list.map(r=>{
     const ev=D.evidence.filter(e=>e.riskId===r.id).length;
-    return`<tr><td><div style="font-weight:500">${r.name}</div><div style="font-size:11px;color:var(--text3)">${r.desc?r.desc.substring(0,60)+'…':''}</div></td><td>${r.category}</td><td>${badge(r.severity)}</td><td class="mono">${r.likelihood||'?'}×${r.impact||'?'}</td><td>${r.owner}</td><td>${badge(r.status)}</td><td><span class="badge b-purple">${r.nist}</span></td><td>${ev?`<span class="badge b-teal">${ev}</span>`:'—'}</td><td style="white-space:nowrap"><button class="btn btn-ghost btn-sm" onclick="openDetail('risk','${r.id}')">✏️</button> <button class="btn btn-danger btn-sm" onclick="del('risks','${r.id}',renderRisks)">✕</button></td></tr>`;
+    const nist=(D.riskMeta||{})[r.id]?.nist||'—';
+    return`<tr><td style="cursor:pointer" onclick="openDetail('risk','${r.id}')"><div style="font-weight:500;color:var(--blue)">${r.name}</div><div style="font-size:11px;color:var(--text3)">${r.desc?r.desc.substring(0,60)+'…':''}</div></td><td>${r.category}</td><td>${badge(r.severity)}</td><td class="mono">${r.likelihood||'?'}×${r.impact||'?'}</td><td>${r.owner}</td><td>${badge(r.status)}</td><td><span class="badge b-purple">${nist}</span></td><td>${ev?`<span class="badge b-teal">${ev}</span>`:'—'}</td><td><button class="btn btn-danger btn-sm" onclick="event.stopPropagation();del('risks','${r.id}',renderRisks)">✕</button></td></tr>`;
   }).join(''):'<tr><td colspan="9" style="text-align:center;color:var(--text3);padding:32px">No risks registered. Click "+ Add Risk" to begin.</td></tr>';
   document.getElementById('nb-risks').textContent=D.risks.length;
 }
@@ -2481,7 +2483,8 @@ function renderRiskWorkspace(){
   if(!tb)return;
   tb.innerHTML=D.risks.length?D.risks.map(r=>{
     const ev=D.evidence.filter(e=>e.riskId===r.id).length;
-    return`<tr><td><div style="font-weight:500">${r.name}</div><div style="font-size:11px;color:var(--text3)">${r.desc?r.desc.substring(0,72)+'…':''}</div></td><td>${r.category}</td><td>${badge(r.severity)}</td><td class="mono">${r.likelihood||'?'}×${r.impact||'?'}</td><td>${r.owner||'—'}</td><td>${badge(r.status)}</td><td><span class="badge b-purple">${r.nist||'—'}</span></td><td>${ev?`<span class="badge b-teal">${ev}</span>`:'—'}</td><td style="white-space:nowrap"><button class="btn btn-ghost btn-sm" onclick="openDetail('risk','${r.id}')">✏️</button> <button class="btn btn-danger btn-sm" onclick="del('risks','${r.id}',renderRiskWorkspace)">✕</button></td></tr>`;
+    const nistW=(D.riskMeta||{})[r.id]?.nist||'—';
+    return`<tr><td style="cursor:pointer" onclick="openDetail('risk','${r.id}')"><div style="font-weight:500;color:var(--blue)">${r.name}</div><div style="font-size:11px;color:var(--text3)">${r.desc?r.desc.substring(0,72)+'…':''}</div></td><td>${r.category}</td><td>${badge(r.severity)}</td><td class="mono">${r.likelihood||'?'}×${r.impact||'?'}</td><td>${r.owner||'—'}</td><td>${badge(r.status)}</td><td><span class="badge b-purple">${nistW}</span></td><td>${ev?`<span class="badge b-teal">${ev}</span>`:'—'}</td><td><button class="btn btn-danger btn-sm" onclick="event.stopPropagation();del('risks','${r.id}',renderRiskWorkspace)">✕</button></td></tr>`;
   }).join(''):'<tr><td colspan="9" style="text-align:center;color:var(--text3);padding:32px">No risks registered yet.</td></tr>';
   renderRiskRegisterHome();
 }
@@ -2489,7 +2492,7 @@ function renderGapWorkspace(){
   const tb=document.getElementById('gap-workspace-tb');
   if(!tb)return;
   const gaps=getGapItems();
-  tb.innerHTML=gaps.length?gaps.map(g=>`<tr><td><div style="font-weight:500">${g.name}</div><div style="font-size:11px;color:var(--text3)">${g.reference||g.desc||'—'}</div></td><td>${g.area||'—'}</td><td>${badge(g.severity||'Medium')}</td><td>${badge(g.status||'Open')}</td><td>${g.owner||'—'}</td><td><span class="badge b-blue">${g.framework||'NIST CSF 2.0'}</span></td><td style="color:var(--text3)">${g.source||'Manual'}</td><td style="white-space:nowrap">${g.system?'—':`<button class="btn btn-ghost btn-sm" onclick="openDetail('gap','${g.id}')">✏️</button> <button class="btn btn-danger btn-sm" onclick="deleteGap('${g.id}')">✕</button>`}</td></tr>`).join(''):'<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:32px">No gaps registered yet.</td></tr>';
+  tb.innerHTML=gaps.length?gaps.map(g=>`<tr><td style="${g.system?'':'cursor:pointer'}" onclick="${g.system?'':'openDetail(\'gap\',\''+g.id+'\')'}"><div style="font-weight:500${g.system?'':';color:var(--blue)'}">${g.name}</div><div style="font-size:11px;color:var(--text3)">${g.reference||g.desc||'—'}</div></td><td>${g.area||'—'}</td><td>${badge(g.severity||'Medium')}</td><td>${badge(g.status||'Open')}</td><td>${g.owner||'—'}</td><td><span class="badge b-blue">${g.framework||'NIST CSF 2.0'}</span></td><td style="color:var(--text3)">${g.source||'Manual'}</td><td>${g.system?'—':`<button class="btn btn-danger btn-sm" onclick="event.stopPropagation();deleteGap('${g.id}')">✕</button>`}</td></tr>`).join(''):'<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:32px">No gaps registered yet.</td></tr>';
   renderRiskRegisterHome();
 }
 function addGap(){
@@ -2588,7 +2591,7 @@ function addAsset(){
 }
 function renderAssets(){
   const tb=document.getElementById('assets-tb');
-  tb.innerHTML=D.assets.length?D.assets.map(a=>`<tr><td style="font-weight:500">${a.name}</td><td><span class="badge b-blue">${a.type}</span></td><td class="mono" style="font-size:12px">${a.ip||'—'}</td><td style="color:var(--text3)">${a.os||'—'}</td><td>${badge(a.criticality)}</td><td>${a.owner}</td><td>${badge(a.status)}</td><td style="white-space:nowrap"><button class="btn btn-ghost btn-sm" onclick="openDetail('asset','${a.id}')">✏️</button> <button class="btn btn-danger btn-sm" onclick="del('assets','${a.id}',renderAssets)">✕</button></td></tr>`).join(''):'<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:32px">No assets added.</td></tr>';
+  tb.innerHTML=D.assets.length?D.assets.map(a=>`<tr><td style="cursor:pointer" onclick="openDetail('asset','${a.id}')"><span style="font-weight:500;color:var(--blue)">${a.name}</span></td><td><span class="badge b-blue">${a.type}</span></td><td class="mono" style="font-size:12px">${a.ip||'—'}</td><td style="color:var(--text3)">${a.os||'—'}</td><td>${badge(a.criticality)}</td><td>${a.owner}</td><td>${badge(a.status)}</td><td><button class="btn btn-danger btn-sm" onclick="event.stopPropagation();del('assets','${a.id}',renderAssets)">✕</button></td></tr>`).join(''):'<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:32px">No assets added.</td></tr>';
 }
 
 // ═══════════════════════════════════════════
@@ -2613,7 +2616,7 @@ function renderEvidence(){
   const tb=document.getElementById('evidence-tb');
   tb.innerHTML=D.evidence.length?D.evidence.map(e=>{
     const risk=D.risks.find(r=>r.id===e.riskId);
-    return`<tr><td style="font-weight:500">${e.name}</td><td><span class="badge b-purple mono">${e.control}</span></td><td><span class="badge b-gray">${e.source}</span></td><td>${badge(e.status)}</td><td>${risk?`<span class="badge b-amber">${risk.name.substring(0,25)}</span>`:'—'}</td><td style="font-size:12px;color:var(--text3)">${e.created}</td><td style="white-space:nowrap"><button class="btn btn-ghost btn-sm" onclick="openDetail('evidence','${e.id}')">✏️</button> <button class="btn btn-danger btn-sm" onclick="del('evidence','${e.id}',renderEvidence)">✕</button></td></tr>`;
+    return`<tr><td style="cursor:pointer" onclick="openDetail('evidence','${e.id}')"><span style="font-weight:500;color:var(--blue)">${e.name}</span></td><td><span class="badge b-purple mono">${e.control}</span></td><td><span class="badge b-gray">${e.source}</span></td><td>${badge(e.status)}</td><td>${risk?`<span class="badge b-amber">${risk.name.substring(0,25)}</span>`:'—'}</td><td style="font-size:12px;color:var(--text3)">${e.created}</td><td><button class="btn btn-danger btn-sm" onclick="event.stopPropagation();del('evidence','${e.id}',renderEvidence)">✕</button></td></tr>`;
   }).join(''):'<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:32px">No evidence collected yet.</td></tr>';
 }
 function saveEvidenceRule(){
@@ -2686,7 +2689,7 @@ function addVendor(){
 }
 function renderVendors(){
   const tb=document.getElementById('vendors-tb');
-  tb.innerHTML=D.vendors.length?D.vendors.map(v=>`<tr><td style="font-weight:500">${v.name}</td><td>${v.category}</td><td>${badge(v.risk)}</td><td><span class="badge b-gray">${v.data}</span></td><td style="font-size:12px;color:var(--text3)">${v.exp||'—'}</td><td>${badge(v.status)}</td><td><span class="badge b-green">0</span></td><td style="white-space:nowrap"><button class="btn btn-ghost btn-sm" onclick="openDetail('vendor','${v.id}')">✏️</button> <button class="btn btn-danger btn-sm" onclick="del('vendors','${v.id}',renderVendors)">✕</button></td></tr>`).join(''):'<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:32px">No vendors added.</td></tr>';
+  tb.innerHTML=D.vendors.length?D.vendors.map(v=>`<tr><td style="cursor:pointer" onclick="openDetail('vendor','${v.id}')"><span style="font-weight:500;color:var(--blue)">${v.name}</span></td><td>${v.category}</td><td>${badge(v.risk)}</td><td><span class="badge b-gray">${v.data}</span></td><td style="font-size:12px;color:var(--text3)">${v.exp||'—'}</td><td>${badge(v.status)}</td><td><span class="badge b-green">0</span></td><td><button class="btn btn-danger btn-sm" onclick="event.stopPropagation();del('vendors','${v.id}',renderVendors)">✕</button></td></tr>`).join(''):'<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:32px">No vendors added.</td></tr>';
 }
 function openEditVendor(id){
   const v=D.vendors.find(x=>x.id===id);if(!v)return;
@@ -2711,7 +2714,7 @@ function addAudit(){
 }
 function renderAudits(){
   const tb=document.getElementById('audits-tb');
-  tb.innerHTML=D.audits.length?D.audits.map(a=>`<tr><td style="font-weight:500">${a.name}</td><td><span class="badge b-blue">${a.framework}</span></td><td>${a.type}</td><td>${a.auditor}</td><td style="font-size:12px">${a.start||'—'}</td><td>${badge(a.status)}</td><td><span class="badge b-teal">${D.evidence.length}</span></td><td style="white-space:nowrap"><button class="btn btn-ghost btn-sm" onclick="openDetail('audit','${a.id}')">✏️</button> <button class="btn btn-danger btn-sm" onclick="del('audits','${a.id}',renderAudits)">✕</button></td></tr>`).join(''):'<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:32px">No audits created.</td></tr>';
+  tb.innerHTML=D.audits.length?D.audits.map(a=>`<tr><td style="cursor:pointer" onclick="openDetail('audit','${a.id}')"><span style="font-weight:500;color:var(--blue)">${a.name}</span></td><td><span class="badge b-blue">${a.framework}</span></td><td>${a.type}</td><td>${a.auditor}</td><td style="font-size:12px">${a.start||'—'}</td><td>${badge(a.status)}</td><td><span class="badge b-teal">${D.evidence.length}</span></td><td><button class="btn btn-danger btn-sm" onclick="event.stopPropagation();del('audits','${a.id}',renderAudits)">✕</button></td></tr>`).join(''):'<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:32px">No audits created.</td></tr>';
 }
 function addPolicy(){
   const name=V('p-name');if(!name){notify('Name required','error');return;}
@@ -2720,7 +2723,7 @@ function addPolicy(){
 }
 function renderPolicies(){
   const tb=document.getElementById('policies-tb');
-  tb.innerHTML=D.policies.length?D.policies.map(p=>`<tr><td style="font-weight:500">${p.name}</td><td>${p.category}</td><td><span class="badge b-gray">${p.version||'v1.0'}</span></td><td>${p.owner}</td><td style="font-size:12px;color:var(--text3)">${p.review||'—'}</td><td>${badge(p.status)}</td><td style="white-space:nowrap"><button class="btn btn-ghost btn-sm" onclick="openDetail('policy','${p.id}')">✏️</button> <button class="btn btn-danger btn-sm" onclick="del('policies','${p.id}',renderPolicies)">✕</button></td></tr>`).join(''):'<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:32px">No policies added.</td></tr>';
+  tb.innerHTML=D.policies.length?D.policies.map(p=>`<tr><td style="cursor:pointer" onclick="openDetail('policy','${p.id}')"><span style="font-weight:500;color:var(--blue)">${p.name}</span></td><td>${p.category}</td><td><span class="badge b-gray">${p.version||'v1.0'}</span></td><td>${p.owner}</td><td style="font-size:12px;color:var(--text3)">${p.review||'—'}</td><td>${badge(p.status)}</td><td><button class="btn btn-danger btn-sm" onclick="event.stopPropagation();del('policies','${p.id}',renderPolicies)">✕</button></td></tr>`).join(''):'<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:32px">No policies added.</td></tr>';
 }
 
 function openEditPolicy(id){
@@ -2858,14 +2861,15 @@ function renderRiskDetail(){
   document.getElementById('riskd-like').value=r.likelihood||3;
   document.getElementById('riskd-impact').value=r.impact||3;
   document.getElementById('riskd-owner').value=r.owner||'';
-  _selExact('riskd-nist',r.nist||'GV.RM-01');
+  _selExact('riskd-nist',(D.riskMeta||{})[id]?.nist||'GV.RM-01');
   renderDocList('risk',id);
 }
 function saveRiskDetail(){
   const id=_did.risk;if(!id)return;
   const name=document.getElementById('riskd-name').value.trim();if(!name){notify('Name required','error');return;}
   const payload={title:name,category:document.getElementById('riskd-cat').value,description:document.getElementById('riskd-desc').value,level:toApiEnum(document.getElementById('riskd-sev').value||'medium'),status:toApiEnum(document.getElementById('riskd-status').value||'open'),likelihood:parseInt(document.getElementById('riskd-like').value)||3,impact:parseInt(document.getElementById('riskd-impact').value)||3,owner:document.getElementById('riskd-owner').value};
-  api.patch('/risks/'+id,payload).then(r=>{const i=D.risks.findIndex(x=>x.id===id);if(i>=0)D.risks[i]=adaptRisk(r);document.getElementById('riskd-title').textContent=name;renderRisks();renderRiskWorkspace();notify('Risk updated');}).catch(e=>notify('Error: '+e.message,'error'));
+  const nistVal=document.getElementById('riskd-nist').value;
+  api.patch('/risks/'+id,payload).then(r=>{const i=D.risks.findIndex(x=>x.id===id);if(i>=0)D.risks[i]=adaptRisk(r);if(!D.riskMeta)D.riskMeta={};D.riskMeta[id]={...(D.riskMeta[id]||{}),nist:nistVal};save();document.getElementById('riskd-title').textContent=name;renderRisks();renderRiskWorkspace();notify('Risk updated');}).catch(e=>notify('Error: '+e.message,'error'));
 }
 
 // ─── VENDOR DETAIL ───
