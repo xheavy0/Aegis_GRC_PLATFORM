@@ -663,7 +663,7 @@ select option{background:var(--bg3);}
     <div class="topbar-right">
       <div class="topbar-indicator"></div>
       <span style="font-size:12px;color:var(--text3)">All systems operational</span>
-      <button class="topbar-btn" onclick="exportReport()">📥 Export</button>
+      <button class="topbar-btn" onclick="toggleTheme()" id="theme-toggle-btn">🌙 Dark</button>
     </div>
   </div>
 
@@ -3490,6 +3490,8 @@ function applyTheme(light){
   const knob=document.getElementById('theme-knob');
   if(lbl)lbl.textContent=light?'☀️ Light':'🌙 Dark';
   if(knob)knob.style.transform=light?'translateX(22px)':'translateX(0)';
+  const btn=document.getElementById('theme-toggle-btn');
+  if(btn)btn.textContent=light?'🌙 Dark':'☀️ Light';
 }
 function toggleTheme(){
   const isLight=!document.body.classList.contains('light-mode');
